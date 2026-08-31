@@ -19,14 +19,14 @@
         <!-- Selector de Foto y Referencia Visual -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube o toma la foto para tenerla de referencia y copiarla al portapapeles.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube o toma la foto. Al enviar, se descargará lista para adjuntar.</p>
             
             <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="mostrarVistaPrevia(event)">
             
             <!-- Vista previa ampliable de la guía -->
             <div id="previewBox" class="mt-4 hidden">
                 <img id="imagenPrevia" onclick="verImagenCompleta()" class="max-h-48 mx-auto rounded-xl shadow-lg border-2 border-white/40 object-contain bg-black/30 cursor-pointer" title="Toca para ampliar">
-                <p class="text-xs text-pink-100 mt-2 font-medium">✔️ Guía lista (Se copiará al enviar)</p>
+                <p class="text-xs text-pink-100 mt-2 font-medium">✔️ Guía cargada correctamente</p>
             </div>
         </div>
 
@@ -34,7 +34,7 @@
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
                 📝 <span>Datos del Envío</span>
-                <span class="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">Manual y Seguro</span>
+                <span class="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">Automatizado</span>
             </h2>
 
             <div>
@@ -64,12 +64,12 @@
         </button>
     </div>
 
-    <!-- Modal simple para ver la foto en grande si se necesita -->
+    <!-- Modal simple para ver la foto en grande -->
     <div id="modalImagen" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4" onclick="cerrarImagenCompleta()">
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Funcional con Copiado de Imagen -->
+    <!-- Script con Automatización de Descarga -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -98,9 +98,9 @@
             document.getElementById('modalImagen').classList.add('hidden');
         }
 
-        async function enviarWhatsApp() {
+        function enviarWhatsApp() {
             const empresa = document.getElementById('empresa').value;
-            const nombre = document.getElementById('nombreCliente').value.trim() || "Cliente";
+            const nombre = document.getElementById('nombreCliente'].value.trim() || "Cliente";
             let telefono = document.getElementById('telefonoCliente').value.trim();
 
             if (!telefono) {
@@ -116,18 +116,17 @@
                 telefono = '58' + telefono;
             }
 
-            // Intentar copiar la imagen al portapapeles para pegarla fácilmente en WhatsApp
-            if (archivoSeleccionado && navigator.clipboard && window.ClipboardItem) {
-                try {
-                    const item = new ClipboardItem({ [archivoSeleccionado.type]: archivoSeleccionado });
-                    await navigator.clipboard.write([item]);
-                    alert("📋 ¡Foto de la guía copiada al portapapeles!\n\nEn WhatsApp, mantén presionado el chat y dale a 'Pegar' para enviarla junto con el mensaje.");
-                } catch (e) {
-                    console.log("No se pudo copiar la imagen automáticamente al portapapeles:", e);
-                }
+            // AUTOMATIZACIÓN 1: Descargar la foto de la guía al teléfono al instante
+            if (archivoSeleccionado) {
+                const enlaceDescarga = document.createElement('a');
+                enlaceDescarga.href = urlImagenActual;
+                enlaceDescarga.download = `Guia_${nombre.replace(/\s+/g, '_')}_${empresa}.jpg`;
+                document.body.appendChild(enlaceDescarga);
+                enlaceDescarga.click();
+                document.body.removeChild(enlaceDescarga);
             }
 
-            // Mensaje con el espacio añadido después de "Gracias por su compra!"
+            // Mensaje estructurado con el espacio exacto pedido
             const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
 `Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
 `Gracias por su compra! 🙏\n\n` +
@@ -140,8 +139,12 @@
 `De esta manera extenderá la vida útil y brillo de sus piezas ✨✨\n\n` +
 `Saludos, Myriedesign`;
 
+            // AUTOMATIZACIÓN 2: Abrir WhatsApp con el número y el texto ya redactado
             const urlWhatsApp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
-            window.open(urlWhatsApp, '_blank');
+            
+            setTimeout(() => {
+                window.open(urlWhatsApp, '_blank');
+            }, 500);
         }
     </script>
 </body>
