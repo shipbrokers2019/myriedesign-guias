@@ -4,17 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Despacho Rápido - Myriedesign</title>
+    <!-- Tailwind CSS para diseño moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librería de código abierto para escaneo de códigos de barras y QR -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 min-p-4 pb-12">
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
     <div class="max-w-md mx-auto p-4">
+        <!-- Header -->
         <header class="text-center my-6">
             <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
             <p class="text-sm text-slate-500">Generador de Envíos y WhatsApp</p>
         </header>
 
+        <!-- Sección de Escaneo -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6">
             <h2 class="font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 📷 1. Escanear Guía del Courier
@@ -28,6 +32,7 @@
             </button>
         </div>
 
+        <!-- Formulario de Datos del Envío -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex items-center gap-2">
                 📝 2. Datos del Destinatario y Envío
@@ -59,11 +64,13 @@
             </div>
         </div>
 
+        <!-- Botón de Acción WhatsApp -->
         <button onclick="enviarWhatsApp()" class="w-full bg-emerald-600 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition flex items-center justify-center gap-2">
             💬 Enviar Notificación por WhatsApp
         </button>
     </div>
 
+    <!-- Script de lógica e interfaz -->
     <script>
         let html5QrCode;
 
@@ -77,20 +84,39 @@
             html5QrCode = new Html5Qrcode("reader");
             const config = { fps: 10, qrbox: { width: 250, height: 150 } };
 
-            html5QrCode.start(
-                { facingMode: "environment" }, 
-                config, 
-                (decodedText) => {
-                    document.getElementById('tracking').value = decodedText;
-                    detectarCourierAutomatico(decodedText);
+            Html5Qrcode.getCameras().devices.then(devices => {
+                if (devices && devices.length) {
+                    let cameraId = devices[devices.length - 1].id; 
+                    html5QrCode.start(
+                        cameraId, 
+                        config, 
+                        (decodedText) => {
+                            document.getElementById('tracking').value = decodedText;
+                            detectarCourierAutomatico(decodedText);
+                            detenerEscaneo();
+                            alert("¡Guía escaneada con éxito!");
+                        },
+                        (errorMessage) => {}
+                    );
+                } else {
+                    alert("No se encontraron cámaras disponibles.");
                     detenerEscaneo();
-                    alert("¡Guía escaneada con éxito!");
-                },
-                (errorMessage) => {}
-            ).catch(err => {
-                console.error("No se pudo iniciar la cámara", err);
-                alert("Error al acceder a la cámara. Revisa los permisos.");
-                detenerEscaneo();
+                }
+            }).catch(err => {
+                html5QrCode.start(
+                    { facingMode: "environment" }, 
+                    config, 
+                    (decodedText) => {
+                        document.getElementById('tracking').value = decodedText;
+                        detectarCourierAutomatico(decodedText);
+                        detenerEscaneo();
+                        alert("¡Guía escaneada con éxito!");
+                    },
+                    (errorMessage) => {}
+                ).catch(e => {
+                    alert("Error al iniciar la cámara. Comprueba los permisos.");
+                    detenerEscaneo();
+                });
             });
         }
 
