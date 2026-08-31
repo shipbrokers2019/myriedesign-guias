@@ -83,7 +83,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Nombres Limpios en el Menú Desplegable -->
+    <!-- Script con Búsqueda Específica junto a la palabra NOMBRE -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -133,7 +133,7 @@
                     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
                     const bloques = agruparEnBloquesDest(lineas);
                     
-                    extraerDatosConPrecision(bloques, texto);
+                    extraerDatosConPrecision(bloques, texto, lineas);
                     estado.innerText = "✅ ¡Datos procesados con éxito!";
                 } catch (error) {
                     console.error(error);
@@ -152,7 +152,7 @@
                 let l = lineas[i];
                 let lUp = l.toUpperCase();
 
-                if (/(DEST|PEST|CLIENTE|SR|SRA)/.test(lUp) || lUp.includes('NOMBRE')) {
+                if (/(DEST|PEST|CLIENTE|SR|SRA|NOMBRE)/.test(lUp)) {
                     if (bloqueActual) bloques.push(bloqueActual.trim());
                     bloqueActual = l;
                 } else if (/(DIR|DIRECCION|ORIGEN|BARCELONA|TIPO SOBRE|CP IP)/.test(lUp) || lUp.startsWith('04')) {
@@ -176,7 +176,7 @@
 
             const palabrasNegras = [
                 'PEST:', 'PEST', 'DEST:', 'DESTINATARIO:', 'DESTINATARI0:', 'DEST', 
-                'CLIENTE:', 'SR:', 'SRA:', 'SRTA:', 'NOMBRE:', 
+                'CLIENTE:', 'SR:', 'SRA:', 'SRTA:', 'NOMBRE:', 'NOMBRE', 
                 'V-', 'E-', 'RIF:', 'CI:', 'C.I.:', 
                 'TLF:', 'TLF', 'TELF:', 'TELF', 'TEL:', 'TEL', 'TELEFONO:',
                 'AV ', 'CALLE ', 'EDIF ', 'PISO ', 'URB ', 'ZONA ', 'CENTRO ', 
@@ -240,7 +240,7 @@
             return telefonoEncontrado;
         }
 
-        function extraerDatosConPrecision(bloques, textoCompleto) {
+        function extraerDatosConPrecision(bloques, textoCompleto, lineas) {
             const textoMayus = textoCompleto.toUpperCase();
 
             let empresaDetectada = 'MRW';
@@ -254,13 +254,37 @@
                 document.getElementById('telefonoCliente').value = telefonoLimpio;
             }
 
+            // Búsqueda prioritaria junto a la etiqueta NOMBRE
             let nombreFinal = "";
-            for (let b of bloques) {
-                if (b.toUpperCase().includes('DEST') || b.toUpperCase().includes('PEST')) {
-                    let posible = aislarNombre(b);
-                    if (posible && posible.split(' ').length >= 2) {
-                        nombreFinal = posible;
+            for (let i = 0; i < lineas.length; i++) {
+                let lUp = lineas[i].toUpperCase();
+                if (lUp.includes('NOMBRE')) {
+                    // Si el nombre está en la misma línea después de "NOMBRE:"
+                    let limpioMismaLinea = aislarNombre(lineas[i]);
+                    if (limpioMismaLinea && limpioMismaLinea.length > 3) {
+                        nombreFinal = limpioMismaLinea;
                         break;
+                    }
+                    // Si no, revisar la línea inmediatamente siguiente
+                    if (i + 1 < lineas.length) {
+                        let limpioSiguiente = aislarNombre(lineas[i + 1]);
+                        if (limpioSiguiente && limpioSiguiente.length > 3) {
+                            nombreFinal = limpioSiguiente;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Si no se encontró por etiqueta NOMBRE, buscar en bloques DEST
+            if (!nombreFinal) {
+                for (let b of bloques) {
+                    if (b.toUpperCase().includes('DEST') || b.toUpperCase().includes('PEST')) {
+                        let posible = aislarNombre(b);
+                        if (posible && posible.split(' ').length >= 2) {
+                            nombreFinal = posible;
+                            break;
+                        }
                     }
                 }
             }
@@ -283,7 +307,6 @@
             
             bloques.forEach(b => {
                 let nombreLimpioOp = aislarNombre(b);
-                // Solo añadimos al menú si el nombre limpio tiene sentido (al menos 2 palabras o longitud razonable)
                 if (nombreLimpioOp && nombreLimpioOp.length > 3) {
                     let opt = document.createElement('option');
                     opt.value = nombreLimpioOp;
