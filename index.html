@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Lógica de Teléfonos Protegida y Extracción Limpia de Línea -->
+    <!-- Script con Lógica de Teléfonos Protegida y Extracción Quirúrgica -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -137,43 +137,59 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. LÓGICA DE DESTINATARIO MEJORADA (LÍNEA LIMPIA CON NOMBRE Y CÉDULA)
-            let nombreEncontrado = "";
+            // 3. EXTRACCIÓN QUIRÚRGICA DE CÉDULA Y NOMBRE
             let cedulaEncontrada = "";
+            let nombreLimpio = "";
 
-            // Buscar cédula en todo el texto primero
+            // Buscar la cédula exacta (Ej: V-8142710 o V8142710)
             const matchCedula = texto.match(/(?:V|E|J|G)[\s\-]?\d{6,8}/i);
             if (matchCedula) {
-                cedulaEncontrada = matchCedula[0].toUpperCase().replace(/\s+/g, '').replace('-', '-');
+                // Formatearla siempre limpia como V-XXXXXXXX
+                let numerosCedula = matchCedula[0].replace(/\D/g, '');
+                let letraCedula = matchCedula[0].charAt(0).toUpperCase();
+                cedulaEncontrada = `${letraCedula}-${numerosCedula}`;
             }
 
-            // Buscar la línea clave del destinatario
+            // Buscar línea que contenga la cédula o palabras de destinatario
             for (let i = 0; i < lineas.length; i++) {
-                let lineaOriginal = lineas[i];
-                let lUp = lineaOriginal.toUpperCase();
+                let linea = lineas[i];
+                let lUp = linea.toUpperCase();
 
-                if (/[V|E|J|G][\s\-]?\d{6,8}/.test(lUp) || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE') || lUp.includes('NOMBRE')) {
-                    // Limpiamos palabras basura del sistema de guías
-                    let limpia = lineaOriginal
-                        .replace(/DESTINATARIO|NOMBRE|CLIENTE|C\.I\.|CEDULA|TLF|TEL:|TELF/gi, '')
-                        .replace(/[:\-_\/]+/g, ' ')
+                if (/(?:V|E|J|G)[\s\-]?\d{6,8}/.test(lUp) || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE')) {
+                    // Quitar etiquetas, códigos basura de barras (como pesT, etc) y caracteres extraños
+                    let temporal = linea
+                        .replace(/(?:V|E|J|G)[\s\-]?\d{6,8}/gi, '') // Quitamos la cédula temporalmente para aislar el nombre
+                        .replace(/DESTINATARIO|CLIENTE|NOMBRE|C\.I\.|CEDULA|TLF|TEL:|TELF|PEST|MER|CCS|ESTANDAR/gi, '')
+                        .replace(/[:\-_\/\\|]+/g, ' ')
                         .replace(/\s+/g, ' ')
                         .trim();
 
-                    if (limpia.length > 3 && limpia.toUpperCase() !== 'BISUTERIA') {
-                        nombreEncontrado = limpia;
+                    // Si quedan palabras con letras válidas de nombre
+                    if (temporal.length > 2 && /[A-ZÁÉÍÓÚÑ]/.test(temporal.toUpperCase()) && temporal.toUpperCase() !== 'BISUTERIA') {
+                        nombreLimpio = temporal;
                         break;
                     }
                 }
             }
 
-            // Si se encontró el nombre y la cédula por separado o en la línea, los unimos de forma limpia
-            if (nombreEncontrado) {
-                // Si la línea ya traía la cédula, la dejamos; si no, se la agregamos si la detectamos
-                if (cedulaEncontrada && !nombreEncontrado.toUpperCase().includes(cedulaEncontrada.substring(0, 4))) {
-                    nombreEncontrado = `${nombreEncontrado} - ${cedulaEncontrada}`;
+            // Si no se armó por línea con cédula, buscar por proximidad de texto común de nombres
+            if (!nombreLimpio) {
+                const ignorar = ['TRACKING', 'BISUTERIA', 'TEALCA', 'MRW', 'ZOOM', 'DOMESA', 'LAE', 'CIUDAD', 'DIRECCION', 'REMITE', 'VALOR', 'ORIGEN', 'DESTINO', 'OFICINA', 'SOBRE', 'PESO', 'COBRAR', 'ENVIADO', 'ENTREGA', 'MER', 'CCS'];
+                for (let linea of lineas) {
+                    let lUp = linea.toUpperCase();
+                    let esIgnorada = ignorar.some(p => lUp.includes(p));
+                    if (linea.length >= 4 && linea.length <= 35 && /^[A-ZÁÉÍÓÚÑ\s\.]+$/.test(lUp) && !esIgnorada && !/\d{5,}/.test(linea)) {
+                        nombreLimpio = linea.replace(/\s+/g, ' ').trim();
+                        break;
+                    }
                 }
-                document.getElementById('nombreCliente').value = nombreEncontrado;
+            }
+
+            // Consolidación final del campo Nombre y Cédula sin duplicaciones
+            if (nombreLimpio && cedulaEncontrada) {
+                document.getElementById('nombreCliente').value = `${nombreLimpio} - ${cedulaEncontrada}`;
+            } else if (nombreLimpio) {
+                document.getElementById('nombreCliente').value = nombreLimpio;
             } else if (cedulaEncontrada) {
                 document.getElementById('nombreCliente').value = `Cliente - ${cedulaEncontrada}`;
             }
