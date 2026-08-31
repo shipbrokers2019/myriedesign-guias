@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Reglas Específicas por Courier y Lógica de Teléfonos Intacta -->
+    <!-- Script con Lógica Intacta para Teléfonos y Reglas Directas por Courier -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -140,11 +140,11 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. EXTRACCIÓN DE DESTINATARIO SEGÚN EL COURIER
+            // 3. EXTRACCIÓN DE DESTINATARIO SEGÚN LA EMPRESA
             let nombreEncontrado = "";
 
             if (empresaDetectada === 'TEALCA') {
-                // TEALCA: Buscar la línea donde dice "NOMBRE"
+                // TEALCA: Lógica fija que ya te gusta
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
                     if (lUp.includes('NOMBRE')) {
@@ -156,7 +156,7 @@
                     }
                 }
             } else if (empresaDetectada === 'ZOOM') {
-                // ZOOM: Buscar la línea donde dice "DESTINATARIO"
+                // ZOOM: Trae toda la línea que dice DESTINATARIO
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
                     if (lUp.includes('DESTINATARIO')) {
@@ -167,29 +167,29 @@
                         }
                     }
                 }
-            } else {
-                // MRW / LAE: Lógica original que ya te funciona bien
-                const matchCedula = texto.match(/(?:V|E|J|G)[\s\-]?\d{6,8}/i);
-                let cedulaEncontrada = matchCedula ? matchCedula[0].toUpperCase().replace(/\s+/g, '-') : "";
-
+            } else if (empresaDetectada === 'MRW') {
+                // MRW: Trae toda la línea que dice DEST (o DESTINATARIO)
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
-                    if (/(?:V|E|J|G)[\s\-]?\d{6,8}/.test(lUp) || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE')) {
-                        let limpia = linea
-                            .replace(/(?:V|E|J|G)[\s\-]?\d{6,8}/gi, '')
-                            .replace(/DESTINATARIO|CLIENTE|NOMBRE|C\.I\.|CEDULA|TLF|TEL:|TELF|PEST|MER|CCS|ESTANDAR/gi, '')
-                            .replace(/[:\-_\/\\|]+/g, ' ')
-                            .replace(/\s+/g, ' ')
-                            .trim();
-
-                        if (limpia.length > 2 && limpia.toUpperCase() !== 'BISUTERIA') {
+                    if (lUp.includes('DEST') || lUp.includes('DESTINATARIO')) {
+                        let limpia = linea.replace(/DESTINATARIO|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        if (limpia.length > 2) {
                             nombreEncontrado = limpia;
                             break;
                         }
                     }
                 }
-                if (nombreEncontrado && cedulaEncontrada && !nombreEncontrado.includes(cedulaEncontrada)) {
-                    nombreEncontrado = `${nombreEncontrado} - ${cedulaEncontrada}`;
+            } else {
+                // Respaldo general por si es LAE u otro
+                for (let linea of lineas) {
+                    let lUp = linea.toUpperCase();
+                    if (lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE')) {
+                        let limpia = linea.replace(/DESTINATARIO|CLIENTE|NOMBRE/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        if (limpia.length > 2) {
+                            nombreEncontrado = limpia;
+                            break;
+                        }
+                    }
                 }
             }
 
