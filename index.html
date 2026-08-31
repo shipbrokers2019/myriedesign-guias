@@ -23,7 +23,7 @@
         <!-- Selector de Foto y Escáner -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube la foto y la IA extraerá solo el nombre y teléfono.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube la foto y la IA rellenará los campos automáticamente.</p>
             
             <input type="file" id="fotoGuia" accept="image/*,.heic,.HEIC" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarGuiaInteligente(event)">
             
@@ -37,8 +37,8 @@
         <!-- Formulario Automatizado -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
-                📝 <span>Datos Esenciales</span>
-                <span class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Foco Exclusivo</span>
+                📝 <span>Datos de Destino</span>
+                <span class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Auto-relleno IA</span>
             </h2>
 
             <div>
@@ -51,22 +51,24 @@
                 </select>
             </div>
 
-            <!-- Selector rápido interactivo -->
+            <!-- Selector rápido interactivo con nombres limpios -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Opciones detectadas de nombre:</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Si el nombre no es exacto, escoge otro aquí:</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
                     <option value="">-- Selecciona el destinatario correcto --</option>
                 </select>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Aislado y Limpio)</label>
                 <input type="text" id="nombreCliente" placeholder="Nombre del cliente..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
+                <p class="text-[11px] text-slate-400 mt-1">Limpio de etiquetas DEST, cédulas y teléfonos.</p>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (Destinatario)</label>
                 <input type="tel" id="telefonoCliente" placeholder="Número detectado..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono font-bold text-slate-800">
+                <p class="text-[11px] text-slate-400 mt-1">Extraído de la sección de destino.</p>
             </div>
         </div>
 
@@ -81,7 +83,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Extracción Quirúrgica (Solo Nombre y Teléfono) -->
+    <!-- Script de la versión anterior -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -115,115 +117,189 @@
                 document.getElementById('imagenPrevia').src = urlImagenActual;
                 document.getElementById('imagenModal').src = urlImagenActual;
                 
-                estado.innerText = "🔍 Analizando solo datos clave...";
+                estado.innerText = "🔍 Leyendo texto con IA...";
 
                 try {
                     const resultado = await Tesseract.recognize(urlImagenActual, 'spa', {
                         logger: m => {
                             if (m.status === 'recognizing text') {
                                 let porc = Math.round(m.progress * 100);
-                                estado.innerText = `🔍 Leyendo datos... ${porc}%`;
+                                estado.innerText = `🔍 Leyendo texto... ${porc}%`;
                             }
                         }
                     });
 
                     const texto = resultado.data.text;
                     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                    const bloques = agruparEnBloquesDest(lineas);
                     
-                    extraerSoloNombreYTelefono(lineas, texto);
-                    estado.innerText = "✅ ¡Datos esenciales extraídos!";
+                    extraerDatosConPrecision(bloques, texto, lineas);
+                    estado.innerText = "✅ ¡Datos procesados con éxito!";
                 } catch (error) {
                     console.error(error);
-                    estado.innerText = "⚠️ Error en la lectura.";
+                    estado.innerText = "⚠️ Lectura manual lista.";
+                    document.getElementById('selectorRapidoContainer').classList.remove('hidden');
                 }
             };
             lector.readAsDataURL(archivo);
         }
 
-        function limpiarCandidatoNombre(texto) {
-            let limpio = texto.toUpperCase();
+        function agruparEnBloquesDest(lineas) {
+            let bloques = [];
+            let bloqueActual = "";
+            
+            for (let i = 0; i < lineas.length; i++) {
+                let l = lineas[i];
+                let lUp = l.toUpperCase();
 
-            // Palabras de relleno a eliminar por completo si se arrastran
-            const basura = [
-                'NOMBRE', 'DESTINATARIO', 'DESTINATARI0', 'DEST', 'INATARIO', 
-                'CEDULA', 'C.I.', 'EFONO', 'TELEFONO', 'TEL', 'TLF', 'TELF',
-                'CLIENTE', 'SR', 'SRA', 'SRTA', 'ENTREGA', 'CIUDAD', 'TURMERO',
-                'BARCELONA', 'CARACAS', 'VALENCIA', 'MARACAY', 'SUC', 'AGENCIA'
+                if (/(DEST|PEST|INATARIO|CLIENTE|SR|SRA|CEDULA|NOMBRE)/.test(lUp)) {
+                    if (bloqueActual) bloques.push(bloqueActual.trim());
+                    bloqueActual = l;
+                } else if (/(DIR|DIRECCION|ORIGEN|ENTREGA|TURMERO|BARCELONA|TIPO SOBRE|CP IP)/.test(lUp) || lUp.startsWith('04')) {
+                    if (bloqueActual) {
+                        bloques.push(bloqueActual.trim());
+                        bloqueActual = "";
+                    }
+                    bloques.push(l);
+                } else if (bloqueActual) {
+                    bloqueActual += " " + l;
+                } else {
+                    if (l.length > 3) bloques.push(l);
+                }
+            }
+            if (bloqueActual) bloques.push(bloqueActual.trim());
+            return bloques.filter(b => b.length > 3);
+        }
+
+        function aislarNombre(textoBruto) {
+            let limpio = textoBruto.toUpperCase();
+
+            if (limpio.includes('NOMBRE')) {
+                let partesNombre = limpio.split('NOMBRE');
+                if (partesNombre.length > 1) {
+                    limpio = partesNombre[1];
+                }
+            }
+
+            const palabrasNegras = [
+                'PEST:', 'PEST', 'DEST:', 'DESTINATARIO:', 'DESTINATARI0:', 'DEST', 
+                'INATARIO', 'CEDULA', 'C.I.', 'EFONO', 'TELEFONO',
+                'CLIENTE:', 'SR:', 'SRA:', 'SRTA:', 
+                'V-', 'E-', 'RIF:', 'CI:', 'C.I.:', 
+                'TLF:', 'TLF', 'TELF:', 'TELF', 'TEL:', 'TEL', 
+                'AV ', 'CALLE ', 'EDIF ', 'PISO ', 'URB ', 'ZONA ', 'CENTRO ', 
+                'BS.', 'BS', 'PESO:', 'KG', 'SUC:', 'AGENCIA:',
+                'CARACAS', 'CCS', 'BARCELONA', 'PLC', 'VALENCIA', 'MARACAY', 'BARINAS', 'ZULIA', 'ENTREGA', 'CIUDAD', 'TURMERO'
             ];
 
-            let regex = new RegExp('\\b(' + basura.join('|') + ')\\b', 'gi');
-            limpio = limpio.replace(regex, ' ');
-            limpio = limpio.replace(/[:\-_\\/]+/g, ' ').replace(/\s+/g, ' ').trim();
+            let regexEtiquetas = new RegExp('\\b(' + palabrasNegras.join('|') + ')\\b', 'gi');
+            limpio = limpio.replace(regexEtiquetas, ' ');
 
-            // Si solo quedaron números o texto muy corto, descartar
-            if (/^\d+$/.test(limpio) || limpio.length < 3) return "";
+            limpio = limpio.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, ' ');
+            limpio = limpio.replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, ' ');
+
+            if (limpio.includes('-')) {
+                let partes = limpio.split('-');
+                limpio = partes.reduce((a, b) => a.trim().split(' ').length >= b.trim().split(' ').length ? a : b);
+            }
+
+            limpio = limpio.replace(/[:_\\/]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+            if (/^\d+$/.test(limpio)) return "";
             return limpio;
         }
 
-        function extraerSoloNombreYTelefono(lineas, textoCompleto) {
-            // 1. Detectar empresa
-            let textoMayus = textoCompleto.toUpperCase();
+        function extraerTelefonoDestinatario(textoCompleto, bloques) {
+            let telefonoEncontrado = "";
+
+            for (let b of bloques) {
+                let bUp = b.toUpperCase();
+                if (bUp.includes('DEST') || bUp.includes('PEST') || bUp.includes('INATARIO') || bUp.includes('TLF') || bUp.includes('EFONO')) {
+                    const matchCel = b.match(/0?((?:414|424|412|416|426)\d{7})/);
+                    if (matchCel && matchCel[1]) {
+                        telefonoEncontrado = matchCel[1];
+                        break;
+                    }
+                }
+            }
+
+            if (!telefonoEncontrado) {
+                const regexTlfEtiqueta = /(?:TLF|TELF|TEL|TELEFONO|EFONO)[:.\s]*0?((?:414|424|412|416|426)\d{7})/i;
+                let matchEtiqueta = textoCompleto.match(regexTlfEtiqueta);
+                if (matchEtiqueta && matchEtiqueta[1]) {
+                    telefonoEncontrado = matchEtiqueta[1];
+                }
+            }
+
+            if (!telefonoEncontrado) {
+                const matchesTodos = [...textoCompleto.matchAll(/\b0?((?:414|424|412|416|426)\d{7})\b/g)];
+                if (matchesTodos.length > 0) {
+                    let ultimoMatch = matchesTodos[matchesTodos.length - 1];
+                    if (ultimoMatch && ultimoMatch[1]) {
+                        telefonoEncontrado = ultimoMatch[1];
+                    }
+                }
+            }
+
+            if (telefonoEncontrado && telefonoEncontrado.startsWith('0')) {
+                telefonoEncontrado = telefonoEncontrado.substring(1);
+            }
+
+            return telefonoEncontrado;
+        }
+
+        function extraerDatosConPrecision(bloques, textoCompleto, lineas) {
+            const textoMayus = textoCompleto.toUpperCase();
+
             let empresaDetectada = 'MRW';
             if (textoMayus.includes('TEALCA')) empresaDetectada = 'TEALCA';
             else if (textoMayus.includes('ZOOM')) empresaDetectada = 'ZOOM';
             else if (textoMayus.includes('LAE')) empresaDetectada = 'LAE';
             document.getElementById('empresa').value = empresaDetectada;
 
-            // 2. Extraer Teléfono (búsqueda directa de móvil venezolano)
-            let telefonoEncontrado = "";
-            const matchesTlf = [...textoCompleto.matchAll(/\b0?((?:414|424|412|416|426)\d{7})\b/g)];
-            if (matchesTlf.length > 0) {
-                telefonoEncontrado = matchesTlf[matchesTlf.length - 1][1]; // por lo general el del destino está al final o cerca de los datos de entrega
-            }
-            if (telefonoEncontrado && telefonoEncontrado.startsWith('0')) {
-                telefonoEncontrado = telefonoEncontrado.substring(1);
-            }
-            if (telefonoEncontrado) {
-                document.getElementById('telefonoCliente').value = telefonoEncontrado;
+            let telefonoLimpio = extraerTelefonoDestinatario(textoCompleto, bloques);
+            if (telefonoLimpio) {
+                document.getElementById('telefonoCliente').value = telefonoLimpio;
             }
 
-            // 3. Extracción exclusiva orientada a la palabra NOMBRE o líneas de destinatario
-            let nombreEncontrado = "";
-            let listaPosibles = [];
-
-            for (let i = 0; i < lineas.length; i++) {
-                let lineaUp = lineas[i].toUpperCase();
-
-                // Si la línea contiene la palabra clave de nombre o destino
-                if (lineaUp.includes('NOMBRE') || lineaUp.includes('INATARIO') || lineaUp.includes('DEST')) {
-                    // Intentamos limpiar la misma línea
-                    let limpio = limpiarCandidatoNombre(lineas[i]);
-                    if (limpio.split(' ').length >= 1) {
-                        listaPosibles.push(limpio);
+            let nombreFinal = "";
+            for (let b of bloques) {
+                if (b.toUpperCase().includes('NOMBRE')) {
+                    let posible = aislarNombre(b);
+                    if (posible && posible.split(' ').length >= 1) {
+                        nombreFinal = posible;
+                        break;
                     }
-                    // O revisar la línea siguiente inmediata (que es donde suele estar el nombre en impresoras térmicas)
-                    if (i + 1 < lineas.length) {
-                        let limpioSig = limpiarCandidatoNombre(lineas[i + 1]);
-                        if (limpioSig && limpioSig.split(' ').length >= 1) {
-                            listaPosibles.push(limpioSig);
+                }
+            }
+
+            if (!nombreFinal) {
+                for (let b of bloques) {
+                    if (b.toUpperCase().includes('DEST') || b.toUpperCase().includes('PEST') || b.toUpperCase().includes('INATARIO')) {
+                        let posible = aislarNombre(b);
+                        if (posible && posible.split(' ').length >= 1) {
+                            nombreFinal = posible;
+                            break;
                         }
                     }
                 }
             }
 
-            // Si encontramos candidatos válidos, asignamos el primero al campo principal
-            if (listaPosibles.length > 0) {
-                // Filtramos duplicados o vacíos
-                letunicos = [...new Set(listaPosibles)];
-                nombreEncontrado = unicos[0];
-                document.getElementById('nombreCliente').value = nombreEncontrado;
+            if (nombreFinal) document.getElementById('nombreCliente').value = nombreFinal;
 
-                // Cargar el selector rápido por si detectó varios
-                const selectSugerencias = document.getElementById('listaSugerencias');
-                selectSugerencias.innerHTML = '<option value="">-- Selecciona el destinatario correcto --</option>';
-                unicos.forEach(op => {
+            const selectSugerencias = document.getElementById('listaSugerencias');
+            selectSugerencias.innerHTML = '<option value="">-- Selecciona el destinatario correcto --</option>';
+            
+            bloques.forEach(b => {
+                let nombreLimpioOp = aislarNombre(b);
+                if (nombreLimpioOp && nombreLimpioOp.length > 2) {
                     let opt = document.createElement('option');
-                    opt.value = op;
-                    opt.textContent = op;
+                    opt.value = nombreLimpioOp;
+                    opt.textContent = nombreLimpioOp;
                     selectSugerencias.appendChild(opt);
-                });
-                document.getElementById('selectorRapidoContainer').classList.remove('hidden');
-            }
+                }
+            });
+            document.getElementById('selectorRapidoContainer').classList.remove('hidden');
         }
 
         function seleccionarSugerencia(select) {
