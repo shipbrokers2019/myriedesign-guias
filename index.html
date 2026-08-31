@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Lógica Quirúrgica para Zoom -->
+    <!-- Script con Reconocimiento por Patrones de Texto (Adiós a las líneas fijas) -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -140,69 +140,49 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. EXTRACCIÓN DE DESTINATARIO
+            // 3. EXTRACCIÓN POR PATRÓN DE NOMBRE (FILTRANDO DIRECCIONES Y BASURA)
             let nombreEncontrado = "";
+            const palabrasBasura = ['AV', 'CALLE', 'EDIF', 'PISO', 'LOCAL', 'ZONA', 'CENTRO', 'URB', 'FINAL', 'INTERCOMUNAL', 'CC', 'CCS', 'MRW', 'ZOOM', 'TEALCA', 'REMITENTE', 'DESTINATARIO', 'MER', 'COBRAR', 'PESO', 'KG'];
 
-            if (empresaDetectada === 'ZOOM') {
-                // En ZOOM el bloque superior suele contener "ZOOM", número de guía y la zona (ej: "CCS"). 
-                // El nombre del destinatario viene justo después del bloque de cabecera de la guía.
-                for (let i = 0; i < lineas.length; i++) {
-                    let lUp = lineas[i].toUpperCase();
-                    // Buscamos la línea donde aparece "ZOOM" o el código de sucursal "CCS" para tomar lo que está inmediatamente abajo
-                    if (lUp.includes('ZOOM') || lUp.includes('CCS')) {
-                        // Revisamos las siguientes 3 líneas para cazar el nombre real (evitando números de guía cortos)
-                        for (let j = 1; j <= 3; j++) {
-                            if (i + j < lineas.length) {
-                                let cand = lineas[i + j];
-                                // Un nombre válido en Zoom suele tener al menos 2 palabras y no ser una dirección o código numérico
-                                if (cand.length > 5 && !/\d{5,}/.test(cand) && !cand.includes('FINAL') && !cand.includes('AV ')) {
-                                    nombreEncontrado = cand;
-                                    break;
-                                }
-                            }
-                        }
-                        if (nombreEncontrado) break;
-                    }
-                }
-                
-                // Si por alguna razón no lo halló con Zoom/CCS, buscamos la línea anterior a la dirección "FINAL"
-                if (!nombreEncontrado) {
-                    for (let i = 0; i < lineas.length; i++) {
-                        if (lineas[i].toUpperCase().includes('FINAL')) {
-                            if (i > 0) nombreEncontrado = lineas[i - 1];
-                            break;
-                        }
-                    }
-                }
+            // Recorremos cada línea buscando patrones que parezcan nombres reales
+            for (let linea of lineas) {
+                let limpia = linea.replace(/[:\-_\/]+/g, ' ').trim();
+                let limpiaUp = limpia.toUpperCase();
 
-            } else if (empresaDetectada === 'MRW') {
-                // Lógica que ya te funcionó para MRW
-                for (let i = 0; i < lineas.length; i++) {
-                    let lUp = lineas[i].toUpperCase();
-                    if (lUp.includes('REMITENTE') || lUp.includes('ORIGEN')) continue;
+                // Si la línea contiene palabras de dirección, la descartamos de inmediato
+                let esDireccionOBasura = palabrasBasura.some(palabra => {
+                    let regex = new RegExp(`\\b${palabra}\\b`, 'i');
+                    return regex.test(limpiaUp);
+                });
 
-                    if (lUp.includes('DEST') || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE')) {
-                        let limpia = lineas[i].replace(/DESTINATARIO|DEST\.?|CLIENTE|SR\.|SRA\./gi, '').replace(/[:\-_\/]+/g, ' ').trim();
-                        if (limpia.length > 3) {
-                            nombreEncontrado = limpia;
-                            break;
-                        } else if (i + 1 < lineas.length) {
-                            nombreEncontrado = lineas[i + 1];
-                            break;
-                        }
-                    }
+                if (esDireccionOBasura) continue;
+
+                // Verificamos si tiene estructura de nombre (entre 2 y 5 palabras, puras letras, sin números)
+                let palabras = limpia.split(/\s+/);
+                let esSoloLetras = palabras.every(p => /^[A-ZÁÉÍÓÚÑ]+$/i.test(p));
+
+                if (esSoloLetras && palabras.length >= 2 && palabras.length <= 5 && limpia.length > 6) {
+                    nombreEncontrado = limpia;
+                    break;
                 }
-            } else {
-                // Genérico / Tealca
+            }
+
+            // Plan de respaldo por si el nombre viene duplicado con guiones (ej: "VERYGIONETT LOAIZA - VERYGIONETT")
+            if (!nombreEncontrado) {
                 for (let linea of lineas) {
-                    if (linea.includes('-') && linea.length > 6 && !linea.toUpperCase().includes('REMITENTE')) {
-                        nombreEncontrado = linea;
-                        break;
+                    if (linea.includes('-')) {
+                        let partes = linea.split('-');
+                        let posible = partes[0].replace(/DESTINATARI[O0]|DEST\.?/gi, '').trim();
+                        let palabras = posible.split(/\s+/);
+                        if (palabras.length >= 2 && posible.length > 5 && !palabrasBasura.some(b => posible.toUpperCase().includes(b))) {
+                            nombreEncontrado = posible;
+                            break;
+                        }
                     }
                 }
             }
 
-            // Limpieza final de duplicados simétricos (ej: "VERYGIONETT LOAIZA - VERYGIONETT LOAIZA")
+            // Limpieza final de duplicados simétricos
             if (nombreEncontrado) {
                 if (nombreEncontrado.includes('-')) {
                     nombreEncontrado = nombreEncontrado.split('-')[0].trim();
