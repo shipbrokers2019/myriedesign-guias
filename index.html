@@ -49,10 +49,18 @@
                 </select>
             </div>
 
+            <!-- Selector rápido si la IA duda en Zoom -->
+            <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca el nombre correcto detectado:</label>
+                <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
+                    <option value="">-- Selecciona el nombre si no cargó --</option>
+                </select>
+            </div>
+
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre y Cédula)</label>
                 <input type="text" id="nombreCliente" placeholder="Esperando foto..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
-                <p class="text-[11px] text-slate-400 mt-1">Verifica si el nombre es correcto.</p>
+                <p class="text-[11px] text-slate-400 mt-1">Verifica si el nombre es correcto o edítalo manualmente.</p>
             </div>
 
             <div>
@@ -73,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Reconocimiento por Patrones de Texto (Adiós a las líneas fijas) -->
+    <!-- Script con Selector de Respaldo Interactivo -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -99,10 +107,10 @@
                     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
                     
                     extraerDatosConPrecision(lineas, texto);
-                    estado.innerText = "✅ ¡Datos rellenados automáticamente!";
+                    estado.innerText = "✅ ¡Datos procesados!";
                 } catch (error) {
                     console.error(error);
-                    estado.innerText = "⚠️ Error al leer. Puedes rellenar manual.";
+                    estado.innerText = "⚠️ Error al leer. Rellena manual.";
                 }
             };
             lector.readAsDataURL(archivoSeleccionado);
@@ -140,24 +148,21 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. EXTRACCIÓN POR PATRÓN DE NOMBRE (FILTRANDO DIRECCIONES Y BASURA)
+            // 3. INTENTO DE EXTRACCIÓN AUTOMÁTICA
             let nombreEncontrado = "";
             const palabrasBasura = ['AV', 'CALLE', 'EDIF', 'PISO', 'LOCAL', 'ZONA', 'CENTRO', 'URB', 'FINAL', 'INTERCOMUNAL', 'CC', 'CCS', 'MRW', 'ZOOM', 'TEALCA', 'REMITENTE', 'DESTINATARIO', 'MER', 'COBRAR', 'PESO', 'KG'];
 
-            // Recorremos cada línea buscando patrones que parezcan nombres reales
             for (let linea of lineas) {
                 let limpia = linea.replace(/[:\-_\/]+/g, ' ').trim();
                 let limpiaUp = limpia.toUpperCase();
 
-                // Si la línea contiene palabras de dirección, la descartamos de inmediato
-                let esDireccionOBasura = palabrasBasura.some(palabra => {
+                let esBasura = palabrasBasura.some(palabra => {
                     let regex = new RegExp(`\\b${palabra}\\b`, 'i');
                     return regex.test(limpiaUp);
                 });
 
-                if (esDireccionOBasura) continue;
+                if (esBasura) continue;
 
-                // Verificamos si tiene estructura de nombre (entre 2 y 5 palabras, puras letras, sin números)
                 let palabras = limpia.split(/\s+/);
                 let esSoloLetras = palabras.every(p => /^[A-ZÁÉÍÓÚÑ]+$/i.test(p));
 
@@ -167,35 +172,30 @@
                 }
             }
 
-            // Plan de respaldo por si el nombre viene duplicado con guiones (ej: "VERYGIONETT LOAIZA - VERYGIONETT")
-            if (!nombreEncontrado) {
-                for (let linea of lineas) {
-                    if (linea.includes('-')) {
-                        let partes = linea.split('-');
-                        let posible = partes[0].replace(/DESTINATARI[O0]|DEST\.?/gi, '').trim();
-                        let palabras = posible.split(/\s+/);
-                        if (palabras.length >= 2 && posible.length > 5 && !palabrasBasura.some(b => posible.toUpperCase().includes(b))) {
-                            nombreEncontrado = posible;
-                            break;
-                        }
-                    }
-                }
+            if (nombreEncontrado) {
+                document.getElementById('nombreCliente').value = nombreEncontrado;
             }
 
-            // Limpieza final de duplicados simétricos
-            if (nombreEncontrado) {
-                if (nombreEncontrado.includes('-')) {
-                    nombreEncontrado = nombreEncontrado.split('-')[0].trim();
-                } else {
-                    const palabras = nombreEncontrado.split(/\s+/);
-                    if (palabras.length >= 4 && palabras.length % 2 === 0) {
-                        let mitad = palabras.length / 2;
-                        let p1 = palabras.slice(0, mitad).join(' ');
-                        let p2 = palabras.slice(mitad).join(' ');
-                        if (p1 === p2) nombreEncontrado = p1;
-                    }
+            // 4. CREAR SELECTOR INTERACTIVO CON TODAS LAS LÍNEAS DETECTADAS (IDEAL PARA ZOOM)
+            const selectSugerencias = document.getElementById('listaSugerencias');
+            selectSugerencias.innerHTML = '<option value="">-- Toca aquí para elegir el nombre correcto --</option>';
+            
+            lineas.forEach(l => {
+                if (l.length > 4 && !l.toUpperCase().includes('ZOOM') && !l.toUpperCase().includes('MRW')) {
+                    let opt = document.createElement('option');
+                    opt.value = l;
+                    opt.textContent = l;
+                    selectSugerencias.appendChild(opt);
                 }
-                document.getElementById('nombreCliente').value = nombreEncontrado;
+            });
+
+            document.getElementById('selectorRapidoContainer').classList.remove('hidden');
+        }
+
+        function seleccionarSugerencia(select) {
+            if (select.value) {
+                let limpio = select.value.replace(/[:\-_\/]+/g, ' ').trim();
+                document.getElementById('nombreCliente').value = limpio;
             }
         }
 
