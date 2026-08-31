@@ -4,37 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Despacho Rápido - Myriedesign</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tesseract.js para IA de lectura -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
-    <!-- HEIC 2 Any para convertir fotos de iPhone automáticamente -->
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
     <div class="max-w-md mx-auto p-4">
-        <!-- Header -->
         <header class="text-center my-6">
             <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
             <p class="text-sm text-slate-500">Lector Inteligente de Guías</p>
         </header>
 
-        <!-- Selector de Foto y Escáner -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube la foto (incluso HEIC de iPhone) y la procesaremos.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube la foto y la IA rellenará los campos automáticamente.</p>
             
             <input type="file" id="fotoGuia" accept="image/*,.heic,.HEIC" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarGuiaInteligente(event)">
             
-            <!-- Vista previa y estado -->
             <div id="previewBox" class="mt-4 hidden">
                 <img id="imagenPrevia" onclick="verImagenCompleta()" class="max-h-48 mx-auto rounded-xl shadow-lg border-2 border-white/40 object-contain bg-black/30 cursor-pointer" title="Toca para ampliar">
                 <p id="estadoLectura" class="text-xs text-pink-100 mt-2 font-medium">✨ Analizando guía...</p>
             </div>
         </div>
 
-        <!-- Formulario Automatizado -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
                 📝 <span>Datos Detectados</span>
@@ -51,43 +44,38 @@
                 </select>
             </div>
 
-            <!-- Selector rápido interactivo -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea correcta (se unificará y limpiará sola):</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea correcta (se aislará el nombre):</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
                     <option value="">-- Selecciona el texto de la guía --</option>
                 </select>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Solo Nombre)</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Aislado y Limpio)</label>
                 <input type="text" id="nombreCliente" placeholder="Nombre del cliente..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
-                <p class="text-[11px] text-slate-400 mt-1">Limpio de cédulas y números automáticamente.</p>
+                <p class="text-[11px] text-slate-400 mt-1">Limpio de direcciones, teléfonos, cédulas y códigos.</p>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono</label>
-                <input type="tel" id="telefonoCliente" placeholder="Número de teléfono..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
+                <input type="tel" id="telefonoCliente" placeholder="Número detectado..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
                 <p class="text-[11px] text-slate-400 mt-1">Número detectado en la guía.</p>
             </div>
         </div>
 
-        <!-- Botón de Acción WhatsApp -->
         <button onclick="enviarWhatsApp()" class="w-full bg-emerald-600 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition flex items-center justify-center gap-2">
             💬 Enviar Notificación por WhatsApp
         </button>
     </div>
 
-    <!-- Modal para ver foto -->
     <div id="modalImagen" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4" onclick="cerrarImagenCompleta()">
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Limpieza y Unificación Inteligente de Bloques -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
-        let bloquesGlobales = [];
 
         async function procesarGuiaInteligente(event) {
             let archivo = event.target.files[0];
@@ -132,11 +120,9 @@
 
                     const texto = resultado.data.text;
                     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                    const bloques = agruparEnBloques(lineas);
                     
-                    // Agrupar líneas en bloques lógicos (ej: si una línea tiene el nombre y la siguiente la cédula o teléfono)
-                    bloquesGlobales = agruparEnBloques(lineas);
-                    
-                    extraerDatosConPrecision(bloquesGlobales, texto);
+                    extraerDatosConPrecision(bloques, texto);
                     estado.innerText = "✅ ¡Datos procesados con éxito!";
                 } catch (error) {
                     console.error(error);
@@ -147,80 +133,74 @@
             lector.readAsDataURL(archivo);
         }
 
-        // Agrupa líneas contiguas para que bloques como "INGRID" y "CAMPOS V-8142710" formen un solo elemento unificado
+        // Agrupa líneas contiguas para formar bloques lógicos (Nombre + Cédula + Teléfono)
         function agruparEnBloques(lineas) {
             let bloques = [];
             let bloqueActual = "";
-
             for (let i = 0; i < lineas.length; i++) {
                 let l = lineas[i];
                 let lUp = l.toUpperCase();
-
-                // Detectar inicio de nuevo bloque de destinatario
-                if (lUp.includes('PEST:') || lUp.includes('DEST:') || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE') || lUp.includes('SR.') || lUp.includes('SRA.')) {
+                // Inicia bloque si detecta etiquetas de destinatario
+                if (/(DESTINATARI|CLIENTE|SR|SRA)/.test(lUp) || lUp.includes('NOMBRE')) {
                     if (bloqueActual) bloques.push(bloqueActual.trim());
                     bloqueActual = l;
-                } else if (lUp.includes('DIR:') || lUp.includes('ORIGEN:') || lUp.includes('BARCELONA') || lUp.includes('TIPO SOBRE') || lUp.includes('CP IP')) {
+                } else if (/(DIR|DIRECCION|ORIGEN|BARCELONA)/.test(lUp) || lUp.includes('TELEFONO') || lUp.startsWith('04')) {
+                    // Si empieza dirección o teléfono, cierra el bloque anterior y añade este individualmente
                     if (bloqueActual) {
                         bloques.push(bloqueActual.trim());
                         bloqueActual = "";
                     }
-                    bloques.push(l); // Bloque individual para direcciones u otros
+                    bloques.push(l);
+                } else if (bloqueActual) {
+                    // Si hay bloque activo, añade la línea
+                    bloqueActual += " " + l;
                 } else {
-                    if (bloqueActual) {
-                        bloqueActual += " " + l;
-                        // Si el bloque actual ya contiene cédula o teléfono, lo cerramos
-                        if (/\d{7,8}/.test(bloqueActual) || lUp.includes('TLF')) {
-                            bloques.push(bloqueActual.trim());
-                            bloqueActual = "";
-                        }
-                    } else {
-                        bloqueActual = l;
-                    }
+                    // Línea huérfana
+                    if (l.length > 4) bloques.push(l);
                 }
             }
             if (bloqueActual) bloques.push(bloqueActual.trim());
-            return bloques.length > 0 ? bloques : lineas;
+            return bloques.filter(b => b.length > 4);
         }
 
-        // Limpieza profunda y unificada: Extrae solo el nombre, barriendo cédulas, teléfonos y etiquetas
-        function limpiarNombre(textoBruto) {
-            if (!textoBruto) return "";
-            let limpiado = textoBruto.toUpperCase();
+        // FUNCIÓN CLAVE DE AISLAMIENTO: Elimina todo lo que no sea nombre de persona
+        function aislarNombre(textoBruto) {
+            let limpio = textoBruto.toUpperCase();
 
-            // 1. Quitar prefijos y etiquetas de campos
-            limpiado = limpiado.replace(/PEST[:\s]*|DESTINATARI[O0][:\s]*|DEST\.?[:\s]*|NOMBRE[:\s]*|CLIENTE[:\s]*|SR\.?[:\s]*|SRA\.?[:\s]*/gi, '');
+            // Lista negra de palabras que NUNCA deben estar en el campo de solo nombre
+            const palabrasNegras = [
+                'AV ', 'CALLE ', 'EDIF ', 'PISO ', 'LOCAL ', 'URB ', 'ZONA ', 'CENTRO ', 'FINAL ', 
+                'TLF:', 'TLF ', 'TELF:', 'TELF ', 'TEL:', 'TEL ', 'TELEFONO:', 
+                'V-', 'E-', 'RIF:', 'CI:', 'C.I.:', 
+                'PEST:', 'DEST:', 'DESTINATARIO:', 'DESTINATARI0:', 'CLIENTE:', 'SR:', 'SRA:', 'NOMBRE:', 
+                'COBRAR:', 'BS.', 'BS', 'PESO:', 'KG', 'MER:', ' COD.', 'SUC:', 'AGENCIA:',
+                'CARACAS', 'CCS', 'BARCELONA', 'PLC', 'VALENCIA', 'MARACAY', 'BARINAS', 'ZULIA',
+                'PARROQUIA', 'MUNICIPIO', 'ESTADO', 'ZONA POSTAL'
+            ];
 
-            // 2. Eliminar patrones completos de cédula (Ej: V-8142710, E-12345678, V8142710)
-            limpiado = limpiado.replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, '');
+            // 1. Reemplazamos etiquetas y prefijos por espacio
+            let regexEtiquetas = new RegExp(palabrasNegras.join('|'), 'gi');
+            limpio = limpio.replace(regexEtiquetas, ' ');
 
-            // 3. Eliminar números de teléfono y etiquetas TLF
-            limpiado = limpiado.replace(/TLF[:\s]*\d+/gi, '');
-            limpiado = limpiado.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '');
+            // 2. Eliminamos números de teléfono (cualquier combinación de 10-11 dígitos)
+            limpio = limpio.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, ' ');
+            limpio = limpio.replace(/\b\d{10,11}\b/g, ' ');
 
-            // 4. Si quedan números sueltos largos al final (como partes de cédula incompletas), cortarlos
-            limpiado = limpiado.replace(/\b\d{5,}\b/g, '');
+            // 3. Eliminamos cédulas que hayan quedado (secuencias de 7 u 8 números)
+            limpio = limpiado.replace(/\b\d{7,8}\b/g, ' ');
 
-            // 5. Si hay guiones molestos, limpiar espacios o tomar la parte con letras
-            if (limpiado.includes('-')) {
-                let partes = limpiado.split('-');
-                let mejorParte = partes.reduce((a, b) => a.trim().split(' ').length >= b.trim().split(' ').length ? a : b);
-                limpiado = mejorParte;
+            // 4. Si hay guiones, tomamos la parte izquierda (asumiendo que es nombre - cédula)
+            if (limpio.includes('-')) {
+                limpio = limpio.split('-')[0];
             }
 
-            // 6. Limpiar símbolos sobrantes
-            limpiado = limpiado.replace(/[:_\\/]+/g, ' ').trim();
+            // 5. Limpiamos espacios dobles y extremos, y convertimos a título (Opcional, pero se ve mejor)
+            limpio = limpio.replace(/\s+/g, ' ').trim();
+            
+            // 6. Validación final: Si tras limpiar quedan solo números, devolvemos vacío
+            if (/^\d+$/.test(limpio)) return "";
 
-            // 7. Eliminar duplicados simétricos si los hubiera
-            const palabras = limpiado.split(/\s+/);
-            if (palabras.length >= 4 && palabras.length % 2 === 0) {
-                let mitad = palabras.length / 2;
-                let p1 = palabras.slice(0, mitad).join(' ');
-                let p2 = palabras.slice(mitad).join(' ');
-                if (p1 === p2) limpiado = p1;
-            }
-
-            return limpiado.replace(/\s+/g, ' ').trim();
+            return limpio;
         }
 
         function extraerDatosConPrecision(bloques, textoCompleto) {
@@ -231,69 +211,46 @@
             else if (textoMayus.includes('MRW')) empresaDetectada = 'MRW';
             else if (textoMayus.includes('ZOOM')) empresaDetectada = 'ZOOM';
             else if (textoMayus.includes('LAE')) empresaDetectada = 'LAE';
-
             document.getElementById('empresa').value = empresaDetectada;
 
-            // Extracción de Teléfono
             let telefonoEncontrado = "";
             const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
             const matchesCel = textoCompleto.match(regexCelular);
-            
-            if (matchesCel && matchesCel.length > 0) {
-                telefonoEncontrado = matchesCel[0];
-            } else {
-                const numerosLimpios = textoCompleto.replace(/\D/g, ' ');
-                const palabrasNum = numerosLimpios.split(/\s+/).filter(n => n.length >= 10 && n.length <= 11 && !n.startsWith('8464') && !n.startsWith('5117') && !n.startsWith('0310'));
-                if (palabrasNum.length > 0) telefonoEncontrado = palabrasNum[0];
-            }
+            if (matchesCel) telefonoEncontrado = matchesCel[0];
+            if (telefonoEncontrado) document.getElementById('telefonoCliente').value = telefonoEncontrado;
 
-            if (telefonoEncontrado) {
-                if (telefonoEncontrado.startsWith('0')) telefonoEncontrado = telefonoEncontrado.substring(1);
-                document.getElementById('telefonoCliente').value = telefonoEncontrado;
-            }
-
-            // Detección automática del nombre
-            let nombreEncontrado = "";
+            // Aplicamos el aislamiento a cada bloque detectado
+            let nombreFinal = "";
             for (let b of bloques) {
-                let limpio = limpiarNombre(b);
-                let numPalabras = limpio.split(' ').length;
-                if (numPalabras >= 2 && numPalabras <= 4 && !/\d/.test(limpio) && !limpio.includes('DIR') && !limpio.includes('BARCELONA')) {
-                    nombreEncontrado = limpio;
-                    break;
+                let posible = aislarNombre(b);
+                // Si el resultado tiene al menos dos palabras y no es basura, es el nombre
+                if (posible && posible.split(' ').length >= 2 && posible.length > 6) {
+                    nombreFinal = posible;
+                    break; // Nos quedamos con el primer bloque que pase el filtro
                 }
             }
+            if (nombreFinal) document.getElementById('nombreCliente').value = nombreFinal;
 
-            if (nombreEncontrado) {
-                document.getElementById('nombreCliente').value = nombreEncontrado;
-            }
-
-            // Llenar el selector rápido con los bloques unificados
+            // Llenar selector rápido
             const selectSugerencias = document.getElementById('listaSugerencias');
             selectSugerencias.innerHTML = '<option value="">-- Toca el bloque correcto (se limpiará solo) --</option>';
-            
             bloques.forEach(b => {
-                if (b.length > 3) {
-                    let opt = document.createElement('option');
-                    opt.value = b;
-                    opt.textContent = b;
-                    selectSugerencias.appendChild(opt);
-                }
+                let opt = document.createElement('option');
+                opt.value = b;
+                opt.textContent = b;
+                selectSugerencias.appendChild(opt);
             });
-
             document.getElementById('selectorRapidoContainer').classList.remove('hidden');
         }
 
         function seleccionarSugerencia(select) {
             if (select.value) {
-                let nombreLimpioFinal = limpiarNombre(select.value);
-                document.getElementById('nombreCliente').value = nombreLimpioFinal;
+                document.getElementById('nombreCliente').value = aislarNombre(select.value);
             }
         }
 
         function verImagenCompleta() {
-            if (urlImagenActual) {
-                document.getElementById('modalImagen').classList.remove('hidden');
-            }
+            if (urlImagenActual) document.getElementById('modalImagen').classList.remove('hidden');
         }
 
         function cerrarImagenCompleta() {
@@ -306,40 +263,4 @@
             let telefono = document.getElementById('telefonoCliente').value.trim();
 
             if (!telefono) {
-                alert("Por favor verifica el teléfono del destinatario.");
-                return;
-            }
-
-            if (telefono.startsWith('0')) telefono = telefono.substring(1);
-            if (!telefono.startsWith('58')) telefono = '58' + telefono;
-
-            if (archivoSeleccionado) {
-                const enlaceDescarga = document.createElement('a');
-                enlaceDescarga.href = urlImagenActual;
-                enlaceDescarga.download = `Guia_${nombre.replace(/\s+/g, '_')}_${empresa}.jpg`;
-                document.body.appendChild(enlaceDescarga);
-                enlaceDescarga.click();
-                document.body.removeChild(enlaceDescarga);
-            }
-
-            const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
-`Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
-`Gracias por su compra! 🙏\n\n` +
-`Recuerde que es importante darle los cuidados adecuados a sus piezas:\n` +
-`❤️ Mantener limpias y secas.\n` +
-`❤️ Alejar de químicos (alcohol, perfumes, cremas, jabones).\n` +
-`❤️ Colocar cuando la piel esté seca.\n` +
-`❤️ No mojar ni usar en playa o piscinas.\n` +
-`❤️ Evitar hacer ejercicios con ellas.\n\n` +
-`De esta manera extenderá la vida útil y brillo de sus piezas ✨✨\n\n` +
-`Saludos, Myriedesign`;
-
-            const urlWhatsApp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
-            
-            setTimeout(() => {
-                window.open(urlWhatsApp, '_blank');
-            }, 300);
-        }
-    </script>
-</body>
-</html>
+                alert("Por
