@@ -66,9 +66,9 @@
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono</label>
-                <input type="tel" id="telefonoCliente" placeholder="Número detectado..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
-                <p class="text-[11px] text-slate-400 mt-1">Número detectado en la guía.</p>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (Aislado)</label>
+                <input type="tel" id="telefonoCliente" placeholder="Número detectado..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono font-bold text-slate-800">
+                <p class="text-[11px] text-slate-400 mt-1">Extraído automáticamente de la guía.</p>
             </div>
         </div>
 
@@ -83,7 +83,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Detección DEST y MRW por Defecto -->
+    <!-- Script con Extracción Avanzada de Teléfono y Nombre -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -144,7 +144,6 @@
             lector.readAsDataURL(archivo);
         }
 
-        // Agrupa de manera inteligente enfocándose en la línea DEST y sus continuaciones naturales
         function agruparEnBloquesDest(lineas) {
             let bloques = [];
             let bloqueActual = "";
@@ -153,19 +152,16 @@
                 let l = lineas[i];
                 let lUp = l.toUpperCase();
 
-                // Detectar si empieza una sección clave (DEST, PEST, CLIENTE, etc.)
                 if (/(DEST|PEST|CLIENTE|SR|SRA)/.test(lUp) || lUp.includes('NOMBRE')) {
                     if (bloqueActual) bloques.push(bloqueActual.trim());
                     bloqueActual = l;
                 } else if (/(DIR|DIRECCION|ORIGEN|BARCELONA|TIPO SOBRE|CP IP)/.test(lUp) || lUp.startsWith('04')) {
-                    // Si llega a la dirección o teléfono, cierra el bloque actual y lo guarda
                     if (bloqueActual) {
                         bloques.push(bloqueActual.trim());
                         bloqueActual = "";
                     }
                     bloques.push(l);
                 } else if (bloqueActual) {
-                    // Continuación del bloque DEST actual (ej: el nombre o la cédula en la línea siguiente)
                     bloqueActual += " " + l;
                 } else {
                     if (l.length > 3) bloques.push(l);
@@ -175,11 +171,9 @@
             return bloques.filter(b => b.length > 3);
         }
 
-        // AISLAMIENTO QUIRÚRGICO DE NOMBRE
         function aislarNombre(textoBruto) {
             let limpio = textoBruto.toUpperCase();
 
-            // Lista negra de palabras y prefijos a eliminar
             const palabrasNegras = [
                 'PEST:', 'PEST', 'DEST:', 'DESTINATARIO:', 'DESTINATARI0:', 'DEST', 
                 'CLIENTE:', 'SR:', 'SRA:', 'SRTA:', 'NOMBRE:', 
@@ -190,52 +184,73 @@
                 'CARACAS', 'CCS', 'BARCELONA', 'PLC', 'VALENCIA', 'MARACAY', 'BARINAS', 'ZULIA'
             ];
 
-            // Reemplazar palabras de la lista negra por espacios
             let regexEtiquetas = new RegExp(palabrasNegras.join('|'), 'gi');
             limpio = limpio.replace(regexEtiquetas, ' ');
 
-            // Eliminar números de teléfono (10-11 dígitos)
+            // Eliminar teléfonos y cédulas para que queden fuera del nombre
             limpio = limpio.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, ' ');
-            limpio = limpio.replace(/\b\d{10,11}\b/g, ' ');
-
-            // Eliminar cédulas (7 u 8 dígitos o combinaciones con puntos)
             limpio = limpio.replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, ' ');
 
-            // Si hay guiones, cortar y tomar la parte con letras
             if (limpio.includes('-')) {
                 let partes = limpio.split('-');
                 limpio = partes.reduce((a, b) => a.trim().split(' ').length >= b.trim().split(' ').length ? a : b);
             }
 
-            // Limpieza general de símbolos y espacios múltiples
             limpio = limpio.replace(/[:_\\/]+/g, ' ').replace(/\s+/g, ' ').trim();
 
             if (/^\d+$/.test(limpio)) return "";
             return limpio;
         }
 
+        // Extractor de teléfono ultra preciso
+        function extraerTelefonoAvanzado(textoCompleto) {
+            // 1. Buscar formato con prefijo explícito (TLF: 0414...)
+            const regexTlfEtiqueta = /(?:TLF|TELF|TEL|TELEFONO)[:.\s]*0?((?:414|424|412|416|426)\d{7})/i;
+            let matchEtiqueta = textoCompleto.match(regexTlfEtiqueta);
+            if (matchEtiqueta && matchEtiqueta[1]) {
+                return matchEtiqueta[1];
+            }
+
+            // 2. Buscar cualquier celda móvil venezolana de 11 dígitos directos
+            const regexCelularDirecto = /\b(0(?:414|424|412|416|426)\d{7})\b/;
+            let matchDirecto = textoCompleto.match(regexCelularDirecto);
+            if (matchDirecto && matchDirecto[1]) {
+                let num = matchDirecto[1];
+                if (num.startsWith('0')) num = num.substring(1);
+                return num;
+            }
+
+            // 3. Búsqueda flexible por si Tesseract pegó mal los ceros o espacios
+            const numerosEnTexto = textoCompleto.replace(/\D/g, ' ');
+            const palabrasNum = numerosEnTexto.split(/\s+/).filter(n => n.length >= 10 && n.length <= 11);
+            for (let n of palabrasNum) {
+                if (n.startsWith('414') || n.startsWith('424') || n.startsWith('412') || n.startsWith('416') || n.startsWith('426') || n.startsWith('04')) {
+                    if (n.startsWith('0')) n = n.substring(1);
+                    if (n.length === 10) return n;
+                }
+            }
+
+            return "";
+        }
+
         function extraerDatosConPrecision(bloques, textoCompleto) {
             const textoMayus = textoCompleto.toUpperCase();
 
-            // EMPRESA POR DEFECTO: MRW (A menos que indique claramente otra)
+            // Empresa por defecto: MRW
             let empresaDetectada = 'MRW';
             if (textoMayus.includes('TEALCA')) empresaDetectada = 'TEALCA';
             else if (textoMayus.includes('ZOOM')) empresaDetectada = 'ZOOM';
             else if (textoMayus.includes('LAE')) empresaDetectada = 'LAE';
-            
             document.getElementById('empresa').value = empresaDetectada;
 
-            // Detección de Teléfono
-            let telefonoEncontrado = "";
-            const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
-            const matchesCel = textoCompleto.match(regexCelular);
-            if (matchesCel) telefonoEncontrado = matchesCel[0];
-            if (telefonoEncontrado) document.getElementById('telefonoCliente').value = telefonoEncontrado;
+            // Extraer Teléfono limpio
+            let telefonoLimpio = extraerTelefonoAvanzado(textoCompleto);
+            if (telefonoLimpio) {
+                document.getElementById('telefonoCliente').value = telefonoLimpio;
+            }
 
-            // Búsqueda inteligente del bloque DEST para aislar el nombre
+            // Búsqueda del nombre en el bloque DEST
             let nombreFinal = "";
-            
-            // Priorizar el bloque que contenga 'DEST' o 'PEST'
             for (let b of bloques) {
                 if (b.toUpperCase().includes('DEST') || b.toUpperCase().includes('PEST')) {
                     let posible = aislarNombre(b);
@@ -246,7 +261,6 @@
                 }
             }
 
-            // Si no encontró por etiqueta, busca el primer bloque válido con al menos 2 palabras
             if (!nombreFinal) {
                 for (let b of bloques) {
                     let posible = aislarNombre(b);
@@ -259,7 +273,7 @@
 
             if (nombreFinal) document.getElementById('nombreCliente').value = nombreFinal;
 
-            // Llenar selector rápido con todos los bloques disponibles
+            // Llenar selector rápido
             const selectSugerencias = document.getElementById('listaSugerencias');
             selectSugerencias.innerHTML = '<option value="">-- Selecciona el bloque DEST correcto --</option>';
             
