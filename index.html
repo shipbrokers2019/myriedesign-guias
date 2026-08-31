@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Tesseract.js para IA de lectura -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <!-- HEIC 2 Any para convertir fotos de iPhone automáticamente -->
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
@@ -21,9 +23,9 @@
         <!-- Selector de Foto y Escáner -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube la foto y la IA rellenará los campos automáticamente.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube la foto (incluso HEIC de iPhone) y la procesaremos.</p>
             
-            <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarGuiaInteligente(event)">
+            <input type="file" id="fotoGuia" accept="image/*,.heic,.HEIC" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarGuiaInteligente(event)">
             
             <!-- Vista previa y estado -->
             <div id="previewBox" class="mt-4 hidden">
@@ -49,7 +51,7 @@
                 </select>
             </div>
 
-            <!-- Selector rápido interactivo por si la IA no lo adivina de primera -->
+            <!-- Selector rápido interactivo -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
                 <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea correcta (se limpiará sola):</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
@@ -59,13 +61,13 @@
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Solo Nombre)</label>
-                <input type="text" id="nombreCliente" placeholder="Esperando foto..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
+                <input type="text" id="nombreCliente" placeholder="Nombre del cliente..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
                 <p class="text-[11px] text-slate-400 mt-1">Limpio de cédulas y números automáticamente.</p>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono</label>
-                <input type="tel" id="telefonoCliente" placeholder="Esperando foto..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
+                <input type="tel" id="telefonoCliente" placeholder="Número de teléfono..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
                 <p class="text-[11px] text-slate-400 mt-1">Número detectado en la guía.</p>
             </div>
         </div>
@@ -81,76 +83,89 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Filtro y Limpieza Profunda de Nombres -->
+    <!-- Script con Soporte HEIC y Limpieza Profunda -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
 
         async function procesarGuiaInteligente(event) {
-            archivoSeleccionado = event.target.files[0];
-            if (!archivoSeleccionado) return;
+            let archivo = event.target.files[0];
+            if (!archivo) return;
+
+            const estado = document.getElementById('estadoLectura');
+            document.getElementById('previewBox').classList.remove('hidden');
+            estado.innerText = "🔄 Preparando imagen...";
+
+            // Si es HEIC (común en iPhone), lo convertimos a JPG automáticamente
+            if (archivo.name.toLowerCase().endsWith('.heic') || archivo.type === "image/heic") {
+                try {
+                    const conversionBlob = await heic2any({
+                        blob: archivo,
+                        toType: "image/jpeg",
+                        quality: 0.8
+                    });
+                    archivo = new File([conversionBlob], archivo.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
+                } catch (e) {
+                    console.error("Error convirtiendo HEIC:", e);
+                }
+            }
+
+            archivoSeleccionado = archivo;
 
             const lector = new FileReader();
             lector.onload = async function(e) {
                 urlImagenActual = e.target.result;
                 document.getElementById('imagenPrevia').src = urlImagenActual;
                 document.getElementById('imagenModal').src = urlImagenActual;
-                document.getElementById('previewBox').classList.remove('hidden');
                 
-                const estado = document.getElementById('estadoLectura');
-                estado.innerText = "🔍 Leyendo texto de la guía...";
+                estado.innerText = "🔍 Leyendo texto con IA...";
 
                 try {
-                    const resultado = await Tesseract.recognize(urlImagenActual, 'spa');
+                    const resultado = await Tesseract.recognize(urlImagenActual, 'spa', {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                let porc = Math.round(m.progress * 100);
+                                estado.innerText = `🔍 Leyendo texto... ${porc}%`;
+                            }
+                        }
+                    });
+
                     const texto = resultado.data.text;
-                    
                     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
                     
                     extraerDatosConPrecision(lineas, texto);
-                    estado.innerText = "✅ ¡Datos procesados!";
+                    estado.innerText = "✅ ¡Datos procesados con éxito!";
                 } catch (error) {
                     console.error(error);
-                    estado.innerText = "⚠️ Error al leer. Rellena manual.";
+                    estado.innerText = "⚠️ Lectura manual lista (escribe o elige abajo).";
+                    document.getElementById('selectorRapidoContainer').classList.remove('hidden');
                 }
             };
-            lector.readAsDataURL(archivoSeleccionado);
+            lector.readAsDataURL(archivo);
         }
 
-        // FUNCIÓN CLAVE: Limpia cédulas, teléfonos, guiones y basura del texto seleccionado
         function limpiarNombre(textoBruto) {
             if (!textoBruto) return "";
+            let limpiado = textoBruto.toUpperCase();
 
-            let limpio = textoBruto.toUpperCase();
-
-            // 1. Quitar prefijos comunes de etiquetas
-            limpiado = limpio.replace(/DESTINATARI[O0]|DEST\.?|NOMBRE|CLIENTE|SR\.|SRA\./gi, '');
-
-            // 2. Eliminar patrones de cédula (Ej: V-12345678, E12345678, V12.345.678)
+            limpiado = limpiado.replace(/DESTINATARI[O0]|DEST\.?|NOMBRE|CLIENTE|SR\.|SRA\./gi, '');
             limpiado = limpiado.replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, '');
-
-            // 3. Eliminar números de teléfono que se hayan mezclado
             limpiado = limpiado.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '');
 
-            // 4. Si hay guiones, separar y tomar la parte que tenga más pinta de nombre (por lo general el lado izquierdo)
             if (limpiado.includes('-')) {
                 let partes = limpiado.split('-');
-                // Buscamos la parte que tenga más palabras de texto
                 let mejorParte = partes.reduce((a, b) => a.trim().split(' ').length >= b.trim().split(' ').length ? a : b);
                 limpiado = mejorParte;
             }
 
-            // 5. Quitar caracteres extraños sobrantes
             limpiado = limpiado.replace(/[:_\\/]+/g, ' ').trim();
 
-            // 6. Si el nombre viene duplicado simétricamente (ej: "VERYGIONETT LOAIZA VERYGIONETT LOAIZA"), cortamos la mitad
             const palabras = limpiado.split(/\s+/);
             if (palabras.length >= 4 && palabras.length % 2 === 0) {
                 let mitad = palabras.length / 2;
                 let p1 = palabras.slice(0, mitad).join(' ');
                 let p2 = palabras.slice(mitad).join(' ');
-                if (p1 === p2) {
-                    limpiado = p1;
-                }
+                if (p1 === p2) limpiado = p1;
             }
 
             return limpiado.replace(/\s+/g, ' ').trim();
@@ -159,7 +174,6 @@
         function extraerDatosConPrecision(lineas, texto) {
             const textoMayus = texto.toUpperCase();
 
-            // 1. Detección de Empresa Courier
             let empresaDetectada = 'TEALCA';
             if (textoMayus.includes('TEALCA')) empresaDetectada = 'TEALCA';
             else if (textoMayus.includes('MRW')) empresaDetectada = 'MRW';
@@ -168,7 +182,6 @@
 
             document.getElementById('empresa').value = empresaDetectada;
 
-            // 2. LÓGICA DE TELÉFONOS
             let telefonoEncontrado = "";
             const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
             const matchesCel = texto.match(regexCelular);
@@ -178,9 +191,7 @@
             } else {
                 const numerosLimpios = texto.replace(/\D/g, ' ');
                 const palabrasNum = numerosLimpios.split(/\s+/).filter(n => n.length >= 10 && n.length <= 11 && !n.startsWith('8464') && !n.startsWith('5117') && !n.startsWith('0310'));
-                if (palabrasNum.length > 0) {
-                    telefonoEncontrado = palabrasNum[0];
-                }
+                if (palabrasNum.length > 0) telefonoEncontrado = palabrasNum[0];
             }
 
             if (telefonoEncontrado) {
@@ -188,7 +199,6 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. BUSCAR Y LIMPIAR AUTOMÁTICAMENTE EL NOMBRE
             let nombreEncontrado = "";
             const palabrasBasura = ['AV', 'CALLE', 'EDIF', 'PISO', 'LOCAL', 'ZONA', 'CENTRO', 'URB', 'FINAL', 'INTERCOMUNAL', 'CC', 'CCS', 'MRW', 'ZOOM', 'TEALCA', 'REMITENTE', 'DESTINATARIO', 'MER', 'COBRAR', 'PESO', 'KG'];
 
@@ -200,7 +210,6 @@
                     let resultadoLimpio = limpiarNombre(linea);
                     let numPalabras = resultadoLimpio.split(' ').length;
                     
-                    // Validamos que parezca un nombre real (de 2 a 4 palabras y sin números)
                     if (numPalabras >= 2 && numPalabras <= 4 && !/\d/.test(resultadoLimpio)) {
                         nombreEncontrado = resultadoLimpio;
                         break;
@@ -212,7 +221,6 @@
                 document.getElementById('nombreCliente').value = nombreEncontrado;
             }
 
-            // 4. LLENAR EL SELECTOR RÁPIDO INTERACTIVO CON LÍNEAS LIMPIAS
             const selectSugerencias = document.getElementById('listaSugerencias');
             selectSugerencias.innerHTML = '<option value="">-- Toca la línea correcta y se limpiará sola --</option>';
             
@@ -220,7 +228,7 @@
                 if (l.length > 4 && !l.toUpperCase().includes('ZOOM') && !l.toUpperCase().includes('MRW')) {
                     let opt = document.createElement('option');
                     opt.value = l;
-                    opt.textContent = l; // Muestra la línea original para que la ubiques fácil
+                    opt.textContent = l;
                     selectSugerencias.appendChild(opt);
                 }
             });
@@ -228,7 +236,6 @@
             document.getElementById('selectorRapidoContainer').classList.remove('hidden');
         }
 
-        // Al tocar cualquier sugerencia, pasa por la aspiradora de limpieza y cae impecable en el input
         function seleccionarSugerencia(select) {
             if (select.value) {
                 let nombreLimpioFinal = limpiarNombre(select.value);
