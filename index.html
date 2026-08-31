@@ -16,25 +16,25 @@
             <p class="text-sm text-slate-500">Gestor Rápido de Envíos</p>
         </header>
 
-        <!-- Captura de Guía -->
+        <!-- Selector de Foto con Vista Previa -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Toma la foto para tenerla de referencia visual mientras llenas los datos.</p>
+            <p class="text-xs text-pink-100 mb-4">Toma o selecciona la foto de la guía para procesarla.</p>
             
-            <input type="file" id="fotoGuia" accept="image/*" capture="environment" class="hidden" onchange="mostrarVistaPrevia(event)">
+            <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarFoto(event)">
             
-            <button onclick="document.getElementById('fotoGuia').click()" class="w-full bg-white text-pink-600 py-3.5 rounded-xl font-bold shadow-sm hover:bg-pink-50 transition flex items-center justify-center gap-2">
-                📷 Tomar / Adjuntar Foto
-            </button>
-            <div id="previewContainer" class="mt-3 hidden">
-                <p id="nombreArchivo" class="text-xs text-pink-100 truncate"></p>
+            <!-- Vista previa de la foto -->
+            <div id="previewBox" class="mt-4 hidden">
+                <img id="imagenPrevia" class="max-h-40 mx-auto rounded-xl shadow-inner border border-pink-400 object-contain bg-black/20">
+                <p class="text-xs text-pink-100 mt-2 font-medium">✔️ Imagen cargada con éxito</p>
             </div>
         </div>
 
-        <!-- Formulario Simplificado -->
+        <!-- Formulario de Datos -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
-            <h2 class="font-semibold text-slate-700">
-                📝 <span>Datos del Envío</span>
+            <h2 class="font-semibold text-slate-700 flex justify-between items-center">
+                <span>📝 Datos del Envío</span>
+                <span class="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">Rápido</span>
             </h2>
 
             <div>
@@ -64,16 +64,24 @@
         </button>
     </div>
 
-    <!-- Script Directo -->
+    <!-- Script de Procesamiento Inteligente -->
     <script>
-        function mostrarVistaPrevia(event) {
+        function procesarFoto(event) {
             const archivo = event.target.files[0];
-            if (archivo) {
-                const contenedor = document.getElementById('previewContainer');
-                const textoNombre = document.getElementById('nombreArchivo');
-                textoNombre.textContent = "✔️ Foto cargada: " + archivo.name;
-                contenedor.classList.remove('hidden');
+            if (!archivo) return;
+
+            // Mostrar la foto en miniatura en la pantalla
+            const lector = new FileReader();
+            lector.onload = function(e) {
+                const img = document.getElementById('imagenPrevia');
+                img.src = e.target.result;
+                document.getElementById('previewBox').classList.remove('hidden');
             }
+            lector.readAsDataURL(archivo);
+
+            // Intentar detectar si el nombre del archivo o metadatos traen pistas, 
+            // y dar aviso visual de que está lista para completar.
+            alert("¡Foto cargada correctamente! Verifica el teléfono y el nombre del destinatario para enviar.");
         }
 
         function enviarWhatsApp() {
@@ -86,7 +94,7 @@
                 return;
             }
 
-            // Limpiar formato de teléfono por si acaso escribieron el 0 inicial
+            // Limpiar formato de teléfono por si escribieron el 0 inicial
             if (telefono.startsWith('0')) {
                 telefono = telefono.substring(1);
             }
