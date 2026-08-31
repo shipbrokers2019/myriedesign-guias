@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Directo y Sin Fallos -->
+    <!-- Script con Lógica Exacta por Posición de Líneas -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -120,7 +120,7 @@
 
             document.getElementById('empresa').value = empresaDetectada;
 
-            // 2. LÓGICA DE TELÉFONOS (Intacta)
+            // 2. LÓGICA DE TELÉFONOS
             let telefonoEncontrado = "";
             const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
             const matchesCel = texto.match(regexCelular);
@@ -140,37 +140,78 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. EXTRACCIÓN DIRECTA DEL DESTINATARIO
+            // 3. EXTRACCIÓN DE DESTINATARIO SEGÚN LA ESTRUCTURA REAL
             let nombreEncontrado = "";
 
-            for (let linea of lineas) {
-                let lUp = linea.toUpperCase();
+            if (empresaDetectada === 'ZOOM') {
+                // ZOOM: El nombre viene justo en la línea anterior o en la misma línea de la etiqueta "Destinatario:"
+                for (let i = 0; i < lineas.length; i++) {
+                    let lUp = lineas[i].toUpperCase();
+                    if (lUp.includes('DESTINATARIO') || lUp.includes('DESTINATARI0')) {
+                        // Revisamos si el nombre viene pegado en la misma línea quitando la etiqueta
+                        let limpia = lUp.replace(/DESTINATARI[O0]|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        
+                        if (limpia.length > 3) {
+                            nombreEncontrado = limpia;
+                        } else if (i > 0) {
+                            // Si estaba vacía la misma línea, tomamos la línea anterior exacta
+                            nombreEncontrado = lineas[i - 1];
+                        }
+                        break;
+                    }
+                }
                 
-                // Si la línea contiene la palabra clave de destinatario (para cualquier courier)
-                if (lUp.includes('DESTINATARIO') || lUp.includes('DESTINATARI0') || lUp.includes('DESTINO:') || (lUp.includes('DEST') && !lUp.includes('REMITENTE'))) {
-                    
-                    // Limpiamos la etiqueta entera de golpe
-                    let limpia = linea
-                        .replace(/DESTINATARI[O0]|DESTINO|DEST\.?/gi, '')
-                        .replace(/[:\-_\/]+/g, ' ')
-                        .trim();
+                // Limpiamos duplicados si viene repetido (ej: "VERYGIONETT LOAIZA - VERYGIONETT LOAIZA")
+                if (nombreEncontrado.includes('-')) {
+                    nombreEncontrado = nombreEncontrado.split('-')[0].trim();
+                }
 
-                    // Si el nombre viene repetido por el formato de la etiqueta (ej: "VERYGIONETT LOAIZA - VERYGIONETT LOAIZA")
-                    if (limpia.includes(' ')) {
-                        const partes = limpia.split(/\s{2,}|-/); // Divide por espacios dobles o guiones
-                        if (partes.length > 0 && partes[0].trim().length > 2) {
-                            limpia = partes[0].trim();
+            } else if (empresaDetectada === 'MRW') {
+                // MRW: Buscamos la línea del destinatario evitando remitente
+                for (let i = 0; i < lineas.length; i++) {
+                    let lUp = lineas[i].toUpperCase();
+                    if (lUp.includes('REMITENTE') || lUp.includes('ORIGEN')) continue;
+
+                    if (lUp.includes('DEST') || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE')) {
+                        let limpia = lineas[i].replace(/DESTINATARIO|DEST\.?|CLIENTE|SR\.|SRA\./gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        if (limpia.length > 3) {
+                            nombreEncontrado = limpia;
+                            break;
+                        } else if (i + 1 < lineas.length) {
+                            nombreEncontrado = lineas[i + 1];
+                            break;
                         }
                     }
+                }
 
-                    if (limpia.length > 2) {
-                        nombreEncontrado = limpia;
-                        break;
+            } else if (empresaDetectada === 'TEALCA') {
+                // TEALCA: Buscamos la línea que contenga la palabra NOMBRE o el destinatario
+                for (let i = 0; i < lineas.length; i++) {
+                    let lUp = lineas[i].toUpperCase();
+                    if (lUp.includes('NOMBRE') || lUp.includes('DESTINATARIO')) {
+                        let limpia = lineas[i].replace(/NOMBRE|DESTINATARIO/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        if (limpia.length > 3) {
+                            nombreEncontrado = limpia;
+                            break;
+                        } else if (i + 1 < lineas.length) {
+                            nombreEncontrado = lineas[i + 1];
+                            break;
+                        }
                     }
                 }
             }
 
+            // Limpieza general final para quitar guiones dobles o espacios excesivos
             if (nombreEncontrado) {
+                nombreEncontrado = nombreEncontrado.replace(/[:\-_\/]+/g, ' ').replace(/\s+/g, ' ').trim();
+                // Si la mitad del texto se repite idéntica (ej. nombre doble), cortamos la mitad
+                const palabras = nombreEncontrado.split(' ');
+                if (palabras.length >= 4 && palabras.length % 2 === 0) {
+                    let mitad = palabras.length / 2;
+                    let p1 = palabras.slice(0, mitad).join(' ');
+                    let p2 = palabras.slice(mitad).join(' ');
+                    if (p1 === p2) nombreEncontrado = p1;
+                }
                 document.getElementById('nombreCliente').value = nombreEncontrado;
             }
         }
