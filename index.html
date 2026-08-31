@@ -4,30 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Despacho Rápido - Myriedesign</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tesseract.js para IA de lectura -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <!-- HEIC 2 Any para convertir fotos de iPhone automáticamente -->
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
     <div class="max-w-md mx-auto p-4">
+        <!-- Header -->
         <header class="text-center my-6">
             <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
             <p class="text-sm text-slate-500">Lector Inteligente de Guías</p>
         </header>
 
+        <!-- Selector de Foto y Escáner -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
             <p class="text-xs text-pink-100 mb-4">Sube la foto y la IA rellenará los campos automáticamente.</p>
             
             <input type="file" id="fotoGuia" accept="image/*,.heic,.HEIC" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarGuiaInteligente(event)">
             
+            <!-- Vista previa y estado -->
             <div id="previewBox" class="mt-4 hidden">
                 <img id="imagenPrevia" onclick="verImagenCompleta()" class="max-h-48 mx-auto rounded-xl shadow-lg border-2 border-white/40 object-contain bg-black/30 cursor-pointer" title="Toca para ampliar">
                 <p id="estadoLectura" class="text-xs text-pink-100 mt-2 font-medium">✨ Analizando guía...</p>
             </div>
         </div>
 
+        <!-- Formulario Automatizado -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
                 📝 <span>Datos Detectados</span>
@@ -37,24 +44,25 @@
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Empresa / Courier</label>
                 <select id="empresa" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-medium">
-                    <option value="TEALCA">TEALCA</option>
                     <option value="MRW">MRW</option>
+                    <option value="TEALCA">TEALCA</option>
                     <option value="ZOOM">ZOOM</option>
                     <option value="LAE">LAE</option>
                 </select>
             </div>
 
+            <!-- Selector rápido interactivo -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea correcta (se aislará el nombre):</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea DEST (se aislará el nombre):</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
-                    <option value="">-- Selecciona el texto de la guía --</option>
+                    <option value="">-- Selecciona el bloque DEST --</option>
                 </select>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Aislado y Limpio)</label>
                 <input type="text" id="nombreCliente" placeholder="Nombre del cliente..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
-                <p class="text-[11px] text-slate-400 mt-1">Limpio de direcciones, teléfonos, cédulas y códigos.</p>
+                <p class="text-[11px] text-slate-400 mt-1">Limpio de etiquetas DEST, cédulas y teléfonos.</p>
             </div>
 
             <div>
@@ -64,15 +72,18 @@
             </div>
         </div>
 
+        <!-- Botón de Acción WhatsApp -->
         <button onclick="enviarWhatsApp()" class="w-full bg-emerald-600 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition flex items-center justify-center gap-2">
             💬 Enviar Notificación por WhatsApp
         </button>
     </div>
 
+    <!-- Modal para ver foto -->
     <div id="modalImagen" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4" onclick="cerrarImagenCompleta()">
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
+    <!-- Script con Detección DEST y MRW por Defecto -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -120,7 +131,7 @@
 
                     const texto = resultado.data.text;
                     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                    const bloques = agruparEnBloques(lineas);
+                    const bloques = agruparEnBloquesDest(lineas);
                     
                     extraerDatosConPrecision(bloques, texto);
                     estado.innerText = "✅ ¡Datos procesados con éxito!";
@@ -133,107 +144,125 @@
             lector.readAsDataURL(archivo);
         }
 
-        // Agrupa líneas contiguas para formar bloques lógicos (Nombre + Cédula + Teléfono)
-        function agruparEnBloques(lineas) {
+        // Agrupa de manera inteligente enfocándose en la línea DEST y sus continuaciones naturales
+        function agruparEnBloquesDest(lineas) {
             let bloques = [];
             let bloqueActual = "";
+            
             for (let i = 0; i < lineas.length; i++) {
                 let l = lineas[i];
                 let lUp = l.toUpperCase();
-                // Inicia bloque si detecta etiquetas de destinatario
-                if (/(DESTINATARI|CLIENTE|SR|SRA)/.test(lUp) || lUp.includes('NOMBRE')) {
+
+                // Detectar si empieza una sección clave (DEST, PEST, CLIENTE, etc.)
+                if (/(DEST|PEST|CLIENTE|SR|SRA)/.test(lUp) || lUp.includes('NOMBRE')) {
                     if (bloqueActual) bloques.push(bloqueActual.trim());
                     bloqueActual = l;
-                } else if (/(DIR|DIRECCION|ORIGEN|BARCELONA)/.test(lUp) || lUp.includes('TELEFONO') || lUp.startsWith('04')) {
-                    // Si empieza dirección o teléfono, cierra el bloque anterior y añade este individualmente
+                } else if (/(DIR|DIRECCION|ORIGEN|BARCELONA|TIPO SOBRE|CP IP)/.test(lUp) || lUp.startsWith('04')) {
+                    // Si llega a la dirección o teléfono, cierra el bloque actual y lo guarda
                     if (bloqueActual) {
                         bloques.push(bloqueActual.trim());
                         bloqueActual = "";
                     }
                     bloques.push(l);
                 } else if (bloqueActual) {
-                    // Si hay bloque activo, añade la línea
+                    // Continuación del bloque DEST actual (ej: el nombre o la cédula en la línea siguiente)
                     bloqueActual += " " + l;
                 } else {
-                    // Línea huérfana
-                    if (l.length > 4) bloques.push(l);
+                    if (l.length > 3) bloques.push(l);
                 }
             }
             if (bloqueActual) bloques.push(bloqueActual.trim());
-            return bloques.filter(b => b.length > 4);
+            return bloques.filter(b => b.length > 3);
         }
 
-        // FUNCIÓN CLAVE DE AISLAMIENTO: Elimina todo lo que no sea nombre de persona
+        // AISLAMIENTO QUIRÚRGICO DE NOMBRE
         function aislarNombre(textoBruto) {
             let limpio = textoBruto.toUpperCase();
 
-            // Lista negra de palabras que NUNCA deben estar en el campo de solo nombre
+            // Lista negra de palabras y prefijos a eliminar
             const palabrasNegras = [
-                'AV ', 'CALLE ', 'EDIF ', 'PISO ', 'LOCAL ', 'URB ', 'ZONA ', 'CENTRO ', 'FINAL ', 
-                'TLF:', 'TLF ', 'TELF:', 'TELF ', 'TEL:', 'TEL ', 'TELEFONO:', 
+                'PEST:', 'PEST', 'DEST:', 'DESTINATARIO:', 'DESTINATARI0:', 'DEST', 
+                'CLIENTE:', 'SR:', 'SRA:', 'SRTA:', 'NOMBRE:', 
                 'V-', 'E-', 'RIF:', 'CI:', 'C.I.:', 
-                'PEST:', 'DEST:', 'DESTINATARIO:', 'DESTINATARI0:', 'CLIENTE:', 'SR:', 'SRA:', 'NOMBRE:', 
-                'COBRAR:', 'BS.', 'BS', 'PESO:', 'KG', 'MER:', ' COD.', 'SUC:', 'AGENCIA:',
-                'CARACAS', 'CCS', 'BARCELONA', 'PLC', 'VALENCIA', 'MARACAY', 'BARINAS', 'ZULIA',
-                'PARROQUIA', 'MUNICIPIO', 'ESTADO', 'ZONA POSTAL'
+                'TLF:', 'TLF', 'TELF:', 'TELF', 'TEL:', 'TEL', 'TELEFONO:',
+                'AV ', 'CALLE ', 'EDIF ', 'PISO ', 'URB ', 'ZONA ', 'CENTRO ', 
+                'BS.', 'BS', 'PESO:', 'KG', 'SUC:', 'AGENCIA:',
+                'CARACAS', 'CCS', 'BARCELONA', 'PLC', 'VALENCIA', 'MARACAY', 'BARINAS', 'ZULIA'
             ];
 
-            // 1. Reemplazamos etiquetas y prefijos por espacio
+            // Reemplazar palabras de la lista negra por espacios
             let regexEtiquetas = new RegExp(palabrasNegras.join('|'), 'gi');
             limpio = limpio.replace(regexEtiquetas, ' ');
 
-            // 2. Eliminamos números de teléfono (cualquier combinación de 10-11 dígitos)
+            // Eliminar números de teléfono (10-11 dígitos)
             limpio = limpio.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, ' ');
             limpio = limpio.replace(/\b\d{10,11}\b/g, ' ');
 
-            // 3. Eliminamos cédulas que hayan quedado (secuencias de 7 u 8 números)
-            limpio = limpiado.replace(/\b\d{7,8}\b/g, ' ');
+            // Eliminar cédulas (7 u 8 dígitos o combinaciones con puntos)
+            limpio = limpio.replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, ' ');
 
-            // 4. Si hay guiones, tomamos la parte izquierda (asumiendo que es nombre - cédula)
+            // Si hay guiones, cortar y tomar la parte con letras
             if (limpio.includes('-')) {
-                limpio = limpio.split('-')[0];
+                let partes = limpio.split('-');
+                limpio = partes.reduce((a, b) => a.trim().split(' ').length >= b.trim().split(' ').length ? a : b);
             }
 
-            // 5. Limpiamos espacios dobles y extremos, y convertimos a título (Opcional, pero se ve mejor)
-            limpio = limpio.replace(/\s+/g, ' ').trim();
-            
-            // 6. Validación final: Si tras limpiar quedan solo números, devolvemos vacío
-            if (/^\d+$/.test(limpio)) return "";
+            // Limpieza general de símbolos y espacios múltiples
+            limpio = limpio.replace(/[:_\\/]+/g, ' ').replace(/\s+/g, ' ').trim();
 
+            if (/^\d+$/.test(limpio)) return "";
             return limpio;
         }
 
         function extraerDatosConPrecision(bloques, textoCompleto) {
             const textoMayus = textoCompleto.toUpperCase();
 
-            let empresaDetectada = 'TEALCA';
+            // EMPRESA POR DEFECTO: MRW (A menos que indique claramente otra)
+            let empresaDetectada = 'MRW';
             if (textoMayus.includes('TEALCA')) empresaDetectada = 'TEALCA';
-            else if (textoMayus.includes('MRW')) empresaDetectada = 'MRW';
             else if (textoMayus.includes('ZOOM')) empresaDetectada = 'ZOOM';
             else if (textoMayus.includes('LAE')) empresaDetectada = 'LAE';
+            
             document.getElementById('empresa').value = empresaDetectada;
 
+            // Detección de Teléfono
             let telefonoEncontrado = "";
             const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
             const matchesCel = textoCompleto.match(regexCelular);
             if (matchesCel) telefonoEncontrado = matchesCel[0];
             if (telefonoEncontrado) document.getElementById('telefonoCliente').value = telefonoEncontrado;
 
-            // Aplicamos el aislamiento a cada bloque detectado
+            // Búsqueda inteligente del bloque DEST para aislar el nombre
             let nombreFinal = "";
+            
+            // Priorizar el bloque que contenga 'DEST' o 'PEST'
             for (let b of bloques) {
-                let posible = aislarNombre(b);
-                // Si el resultado tiene al menos dos palabras y no es basura, es el nombre
-                if (posible && posible.split(' ').length >= 2 && posible.length > 6) {
-                    nombreFinal = posible;
-                    break; // Nos quedamos con el primer bloque que pase el filtro
+                if (b.toUpperCase().includes('DEST') || b.toUpperCase().includes('PEST')) {
+                    let posible = aislarNombre(b);
+                    if (posible && posible.split(' ').length >= 2) {
+                        nombreFinal = posible;
+                        break;
+                    }
                 }
             }
+
+            // Si no encontró por etiqueta, busca el primer bloque válido con al menos 2 palabras
+            if (!nombreFinal) {
+                for (let b of bloques) {
+                    let posible = aislarNombre(b);
+                    if (posible && posible.split(' ').length >= 2 && !posible.includes('DIR')) {
+                        nombreFinal = posible;
+                        break;
+                    }
+                }
+            }
+
             if (nombreFinal) document.getElementById('nombreCliente').value = nombreFinal;
 
-            // Llenar selector rápido
+            // Llenar selector rápido con todos los bloques disponibles
             const selectSugerencias = document.getElementById('listaSugerencias');
-            selectSugerencias.innerHTML = '<option value="">-- Toca el bloque correcto (se limpiará solo) --</option>';
+            selectSugerencias.innerHTML = '<option value="">-- Selecciona el bloque DEST correcto --</option>';
+            
             bloques.forEach(b => {
                 let opt = document.createElement('option');
                 opt.value = b;
@@ -263,4 +292,40 @@
             let telefono = document.getElementById('telefonoCliente').value.trim();
 
             if (!telefono) {
-                alert("Por
+                alert("Por favor verifica el teléfono del destinatario.");
+                return;
+            }
+
+            if (telefono.startsWith('0')) telefono = telefono.substring(1);
+            if (!telefono.startsWith('58')) telefono = '58' + telefono;
+
+            if (archivoSeleccionado) {
+                const enlaceDescarga = document.createElement('a');
+                enlaceDescarga.href = urlImagenActual;
+                enlaceDescarga.download = `Guia_${nombre.replace(/\s+/g, '_')}_${empresa}.jpg`;
+                document.body.appendChild(enlaceDescarga);
+                enlaceDescarga.click();
+                document.body.removeChild(enlaceDescarga);
+            }
+
+            const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
+`Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
+`Gracias por su compra! 🙏\n\n` +
+`Recuerde que es importante darle los cuidados adecuados a sus piezas:\n` +
+`❤️ Mantener limpias y secas.\n` +
+`❤️ Alejar de químicos (alcohol, perfumes, cremas, jabones).\n` +
+`❤️ Colocar cuando la piel esté seca.\n` +
+`❤️ No mojar ni usar en playa o piscinas.\n` +
+`❤️ Evitar hacer ejercicios con ellas.\n\n` +
+`De esta manera extenderá la vida útil y brillo de sus piezas ✨✨\n\n` +
+`Saludos, Myriedesign`;
+
+            const urlWhatsApp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
+            
+            setTimeout(() => {
+                window.open(urlWhatsApp, '_blank');
+            }, 300);
+        }
+    </script>
+</body>
+</html>
