@@ -50,7 +50,7 @@
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre)</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre y Cédula)</label>
                 <input type="text" id="nombreCliente" placeholder="Esperando foto..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
                 <p class="text-[11px] text-slate-400 mt-1">Verifica si el nombre es correcto.</p>
             </div>
@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Lógica de Teléfonos Protegida y Extracción de Línea Completa -->
+    <!-- Script con Lógica de Teléfonos Protegida y Extracción Limpia de Línea -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -137,39 +137,45 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. LÓGICA DE DESTINATARIO (TRAE LA LÍNEA COMPLETA DONDE APARECE LA CÉDULA O EL DATOS CLAVE)
+            // 3. LÓGICA DE DESTINATARIO MEJORADA (LÍNEA LIMPIA CON NOMBRE Y CÉDULA)
             let nombreEncontrado = "";
+            let cedulaEncontrada = "";
 
+            // Buscar cédula en todo el texto primero
+            const matchCedula = texto.match(/(?:V|E|J|G)[\s\-]?\d{6,8}/i);
+            if (matchCedula) {
+                cedulaEncontrada = matchCedula[0].toUpperCase().replace(/\s+/g, '').replace('-', '-');
+            }
+
+            // Buscar la línea clave del destinatario
             for (let i = 0; i < lineas.length; i++) {
                 let lineaOriginal = lineas[i];
                 let lUp = lineaOriginal.toUpperCase();
 
-                // Si la línea contiene una cédula (V- o E-) o la palabra clave DESTINATARIO / NOMBRE, nos traemos la línea completa
-                if (/[V|E][-]?\d{6,8}/.test(lUp) || lUp.includes('DESTINATARIO') || lUp.includes('NOMBRE')) {
-                    // Limpiamos únicamente prefijos molestos si sobran al inicio, pero dejamos toda la línea estructural
-                    let lineaCompleta = lineaOriginal.replace(/DESTINATARIO|NOMBRE|CLIENTE|C\.I\./gi, '').trim();
-                    if (lineaCompleta.length > 3 && lineaCompleta.toUpperCase() !== 'BISUTERIA') {
-                        nombreEncontrado = lineaCompleta;
+                if (/[V|E|J|G][\s\-]?\d{6,8}/.test(lUp) || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE') || lUp.includes('NOMBRE')) {
+                    // Limpiamos palabras basura del sistema de guías
+                    let limpia = lineaOriginal
+                        .replace(/DESTINATARIO|NOMBRE|CLIENTE|C\.I\.|CEDULA|TLF|TEL:|TELF/gi, '')
+                        .replace(/[:\-_\/]+/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+
+                    if (limpia.length > 3 && limpia.toUpperCase() !== 'BISUTERIA') {
+                        nombreEncontrado = limpia;
                         break;
                     }
                 }
             }
 
-            // Respaldo secundario si la línea con cédula no se detectó perfectamente
-            if (!nombreEncontrado || nombreEncontrado.toUpperCase() === 'BISUTERIA' || nombreEncontrado.toUpperCase() === 'TRACKING') {
-                const ignorar = ['TRACKING', 'BISUTERIA', 'TEALCA', 'MRW', 'ZOOM', 'DOMESA', 'LAE', 'CIUDAD', 'DIRECCION', 'REMITE', 'VALOR', 'ORIGEN', 'DESTINO', 'OFICINA', 'SOBRE', 'PESO', 'COBRAR', 'ENVIADO', 'ENTREGA'];
-                for (let linea of lineas) {
-                    let lUp = linea.toUpperCase();
-                    let esIgnorada = ignorar.some(palabra => lUp.includes(palabra));
-                    if (linea.length >= 5 && linea.length <= 40 && /^[A-ZÁÉÍÓÚÑ\s\-\.]+$/.test(linea) && !esIgnorada && !/\d{5,}/.test(linea)) {
-                        nombreEncontrado = linea;
-                        break;
-                    }
-                }
-            }
-
+            // Si se encontró el nombre y la cédula por separado o en la línea, los unimos de forma limpia
             if (nombreEncontrado) {
+                // Si la línea ya traía la cédula, la dejamos; si no, se la agregamos si la detectamos
+                if (cedulaEncontrada && !nombreEncontrado.toUpperCase().includes(cedulaEncontrada.substring(0, 4))) {
+                    nombreEncontrado = `${nombreEncontrado} - ${cedulaEncontrada}`;
+                }
                 document.getElementById('nombreCliente').value = nombreEncontrado;
+            } else if (cedulaEncontrada) {
+                document.getElementById('nombreCliente').value = `Cliente - ${cedulaEncontrada}`;
             }
         }
 
