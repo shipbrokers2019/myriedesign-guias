@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Lógica Intacta para Teléfonos y Reglas Directas por Courier -->
+    <!-- Script con Lógica de Destinatario Corregida para Zoom y MRW -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -144,7 +144,7 @@
             let nombreEncontrado = "";
 
             if (empresaDetectada === 'TEALCA') {
-                // TEALCA: Lógica fija que ya te gusta
+                // TEALCA: Intacto (Línea que dice NOMBRE)
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
                     if (lUp.includes('NOMBRE')) {
@@ -155,24 +155,19 @@
                         }
                     }
                 }
-            } else if (empresaDetectada === 'ZOOM') {
-                // ZOOM: Trae toda la línea que dice DESTINATARIO
+            } else if (empresaDetectada === 'ZOOM' || empresaDetectada === 'MRW') {
+                // ZOOM y MRW: Búsqueda flexible de la línea de destinatario (busca DEST, DESTINATARIO o DESTINO)
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
-                    if (lUp.includes('DESTINATARIO')) {
-                        let limpia = linea.replace(/DESTINATARIO/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
-                        if (limpia.length > 2) {
-                            nombreEncontrado = limpia;
-                            break;
+                    if (lUp.includes('DEST') || lUp.includes('DESTINATARIO') || lUp.includes('DESTINO')) {
+                        let limpia = linea.replace(/DESTINATARIO|DESTINO|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        // Si la etiqueta estaba sola en la línea, tomamos la siguiente línea que tenga texto útil
+                        if (limpia.length <= 2) {
+                            let index = lineas.indexOf(linea);
+                            if (index !== -1 && index + 1 < lineas.length) {
+                                limpia = lineas[index + 1].replace(/[:\-_\/]+/g, ' ').trim();
+                            }
                         }
-                    }
-                }
-            } else if (empresaDetectada === 'MRW') {
-                // MRW: Trae toda la línea que dice DEST (o DESTINATARIO)
-                for (let linea of lineas) {
-                    let lUp = linea.toUpperCase();
-                    if (lUp.includes('DEST') || lUp.includes('DESTINATARIO')) {
-                        let limpia = linea.replace(/DESTINATARIO|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
                         if (limpia.length > 2) {
                             nombreEncontrado = limpia;
                             break;
