@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script de Extracción Precisa -->
+    <!-- Script con Extracción Exacta para Zoom -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -155,19 +155,28 @@
                     }
                 }
             } else if (empresaDetectada === 'ZOOM') {
-                // ZOOM: Buscar específicamente la línea que contenga la palabra DESTINATARIO (o DEST.)
+                // ZOOM: Captura directa de la línea "Destinatario: NOMBRE - NOMBRE"
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
-                    if (lUp.includes('REMITENTE')) continue; // Evitamos caer en el remitente
+                    if (lUp.includes('REMITENTE')) continue; // Evitamos confusiones con el remitente
 
                     if (lUp.includes('DESTINATARIO') || lUp.includes('DEST.')) {
-                        // Limpiamos la etiqueta y dejamos el nombre de la persona
+                        // Quitamos la etiqueta y dejamos el texto limpio
                         let limpia = linea.replace(/DESTINATARIO|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
-                        // Si viene duplicado por formato de impresión (ej: VIVE K-CASA - VIVE K-CASA), cortamos en la mitad o dejamos limpio
-                        if (limpia.includes('-')) {
-                            let partes = limpia.split('-');
-                            limpia = partes[0].trim(); // Tomamos la primera parte limpia
+                        
+                        // Si viene repetido (ej: "VERYGIONETT LOAIZA VERYGIONETT LOAIZA"), partimos y tomamos la primera mitad
+                        const palabras = limpia.split(/\s+/);
+                        if (palabras.length >= 4 && palabras.length % 2 === 0) {
+                            let mitad = palabras.length / 2;
+                            let parte1 = palabras.slice(0, mitad).join(' ');
+                            let parte2 = palabras.slice(mitad).join(' ');
+                            if (parte1 === parte2) {
+                                limpia = parte1;
+                            }
+                        } else if (limpia.includes('-')) {
+                            limpia = limpia.split('-')[0].trim();
                         }
+
                         if (limpia.length > 2) {
                             nombreEncontrado = limpia;
                             break;
