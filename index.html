@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Despacho Rápido - Myriedesign</title>
-    <!-- Tailwind CSS para diseño moderno y responsivo -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Librería de código abierto para escaneo -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- Librería Tesseract.js para lectura por IA -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
@@ -15,42 +15,31 @@
         <!-- Header -->
         <header class="text-center my-6">
             <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
-            <p class="text-sm text-slate-500">Gestor Inteligente de Envíos y WhatsApp</p>
+            <p class="text-sm text-slate-500">Gestor Rápido de Envíos</p>
         </header>
 
-        <!-- Sección de Escaneo -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6">
-            <h2 class="font-semibold text-slate-700 mb-2 flex items-center justify-between">
-                <span>📷 1. Escanear Código de Guía</span>
-                <span id="estado-camara" class="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Inactivo</span>
-            </h2>
-            <p class="text-xs text-slate-400 mb-3">Apunta la cámara al código de barras o QR de Tealca, LAE, Zoom o Mrw.</p>
+        <!-- Botón de Automatización por Foto -->
+        <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
+            <h2 class="font-bold text-lg mb-1">🤖 Llenado Automático</h2>
+            <p class="text-xs text-pink-100 mb-4">Sube la foto de la guía y la app detectará los datos.</p>
             
-            <!-- CONTENEDOR VISIBLE DE LA CÁMARA (¡Aquí estaba el detalle!) -->
-            <div id="reader" class="w-full rounded-xl overflow-hidden mb-3 bg-slate-900 min-h-[180px]"></div>
+            <!-- Input oculto para la foto -->
+            <input type="file" id="foto-guia" accept="image/*" capture="environment" class="hidden" onchange="analizarGuiaConIA(event)">
             
-            <div class="flex gap-2">
-                <button id="btn-iniciar" onclick="iniciarEscaneo()" class="flex-1 bg-slate-900 text-white py-2.5 rounded-xl font-medium hover:bg-slate-800 transition">
-                    Activar Cámara
-                </button>
-                <button id="btn-detener" onclick="detenerEscaneo()" class="flex-1 bg-red-100 text-red-600 py-2.5 rounded-xl font-medium hidden hover:bg-red-200 transition">
-                    Apagar Cámara
-                </button>
-            </div>
-
-            <!-- Opción extra por si la cámara en vivo da problemas con algún navegador -->
-            <div class="mt-3 pt-3 border-t border-slate-100 text-center">
-                <input type="file" id="qr-input-file" accept="image/*" capture="environment" class="hidden" onchange="procesarImagenSeleccionada(event)">
-                <button onclick="document.getElementById('qr-input-file').click()" class="text-xs text-pink-600 font-semibold hover:underline">
-                    📁 ¿Prefieres subir foto de la guía o captura? Toca aquí
-                </button>
+            <button onclick="document.getElementById('foto-guia').click()" id="btn-foto" class="w-full bg-white text-pink-600 py-3.5 rounded-xl font-bold shadow-sm hover:bg-pink-50 transition flex items-center justify-center gap-2">
+                📸 Tomar Foto de la Guía
+            </button>
+            
+            <!-- Estado de carga -->
+            <div id="estado-ia" class="text-xs text-pink-100 mt-3 hidden font-medium animate-pulse">
+                ⏳ Analizando guía...
             </div>
         </div>
 
-        <!-- Formulario de Datos del Envío -->
+        <!-- Formulario Simplificado -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
-            <h2 class="font-semibold text-slate-700 flex items-center gap-2">
-                📝 2. Datos del Destinatario y Envío
+            <h2 class="font-semibold text-slate-700 flex items-center justify-between">
+                📝 <span>Datos del Envío</span>
             </h2>
 
             <div>
@@ -64,23 +53,13 @@
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Número de Tracking / Guía</label>
-                <input type="text" id="tracking" placeholder="Ej. 84640600 o 2300..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:border-pink-500 font-bold text-pink-600">
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre)</label>
+                <input type="text" id="nombreCliente" placeholder="Ej. Maria Faria" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Nombre del Destinatario</label>
-                <input type="text" id="nombreCliente" placeholder="Ej. Maria Faria" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500">
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (con código de país 58)</label>
-                <input type="tel" id="telefonoCliente" placeholder="Ej. 584144609226" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500">
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destino (Ciudad)</label>
-                <input type="text" id="destino" placeholder="Ej. TURMERO" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm uppercase focus:outline-none focus:border-pink-500">
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (con código 58)</label>
+                <input type="tel" id="telefonoCliente" placeholder="Ej. 584144609226" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
             </div>
         </div>
 
@@ -90,125 +69,88 @@
         </button>
     </div>
 
-    <!-- Script de lógica -->
+    <!-- Script de Automatización -->
     <script>
-        let html5QrCode = null;
-
-        function iniciarEscaneo() {
-            const btnIniciar = document.getElementById('btn-iniciar');
-            const btnDetener = document.getElementById('btn-detener');
-            const badgeEstado = document.getElementById('estado-camara');
-            
-            btnIniciar.classList.add('hidden');
-            btnDetener.classList.remove('hidden');
-            badgeEstado.textContent = "Escaneando...";
-            badgeEstado.className = "text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium animate-pulse";
-
-            if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader");
-            }
-
-            const config = { fps: 10, qrbox: { width: 250, height: 150 } };
-
-            html5QrCode.start(
-                { facingMode: "environment" }, 
-                config, 
-                (decodedText) => {
-                    document.getElementById('tracking').value = decodedText;
-                    detectarCourierInteligente(decodedText);
-                    detenerEscaneo();
-                    if (navigator.vibrate) navigator.vibrate(200);
-                },
-                (errorMessage) => {}
-            ).catch(err => {
-                alert("No se pudo iniciar la cámara. Verifica los permisos del navegador o usa la opción de subir foto.");
-                detenerEscaneo();
-            });
-        }
-
-        function detenerEscaneo() {
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    restaurarBotonesCamara();
-                }).catch(err => {
-                    restaurarBotonesCamara();
-                });
-            } else {
-                restaurarBotonesCamara();
-            }
-        }
-
-        function restaurarBotonesCamara() {
-            document.getElementById('btn-iniciar').classList.remove('hidden');
-            document.getElementById('btn-detener').classList.add('hidden');
-            const badgeEstado = document.getElementById('estado-camara');
-            badgeEstado.textContent = "Inactivo";
-            badgeEstado.className = "text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full";
-        }
-
-        function procesarImagenSeleccionada(e) {
+        async function analizarGuiaConIA(e) {
             if (e.target.files.length === 0) return;
-            const imageFile = e.target.files[0];
-            const tempScanner = new Html5Qrcode("reader");
+            const file = e.target.files[0];
+            
+            const btnFoto = document.getElementById('btn-foto');
+            const estadoIa = document.getElementById('estado-ia');
+            
+            btnFoto.disabled = true;
+            btnFoto.classList.add('opacity-50');
+            estadoIa.classList.remove('hidden');
 
-            tempScanner.scanFile(imageFile, true)
-                .then(decodedText => {
-                    document.getElementById('tracking').value = decodedText;
-                    detectarCourierInteligente(decodedText);
-                    alert("¡Guía leída con éxito: " + decodedText + "!");
-                    if (navigator.vibrate) navigator.vibrate(200);
-                })
-                .catch(err => {
-                    alert("No se pudo leer el código en la foto. Intenta enfocar más de cerca el código de barras.");
-                });
+            try {
+                const { data: { text } } = await Tesseract.recognize(
+                    file,
+                    'spa',
+                    { 
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                let porc = Math.round(m.progress * 100);
+                                estadoIa.textContent = `⏳ Leyendo guía... ${porc}%`;
+                            }
+                        }
+                    }
+                );
+
+                interpretarTextoGuia(text);
+                if (navigator.vibrate) navigator.vibrate(200);
+            } catch (err) {
+                alert("No se pudo leer la imagen. Intenta con otra foto más iluminada.");
+            } finally {
+                btnFoto.disabled = false;
+                btnFoto.classList.remove('opacity-50');
+                estadoIa.classList.add('hidden');
+            }
         }
 
-        function detectarCourierInteligente(codigo) {
+        function interpretarTextoGuia(texto) {
+            const textoCompleto = texto.toUpperCase();
+
+            // 1. Detectar Empresa
             const selectEmpresa = document.getElementById('empresa');
-            if (codigo.startsWith("23") || codigo.length === 15) {
-                selectEmpresa.value = "LAE";
-            } else if (codigo.startsWith("84") || codigo.length === 8) {
-                selectEmpresa.value = "TEALCA";
-            } else if (codigo.startsWith("03") || codigo.length === 13) {
-                selectEmpresa.value = "ZOOM";
-            } else {
-                selectEmpresa.value = "MRW";
+            if (textoCompleto.includes("TEALCA")) selectEmpresa.value = "TEALCA";
+            else if (textoCompleto.includes("LAE")) selectEmpresa.value = "LAE";
+            else if (textoCompleto.includes("ZOOM")) selectEmpresa.value = "ZOOM";
+            else if (textoCompleto.includes("MRW")) selectEmpresa.value = "MRW";
+
+            // 2. Buscar Teléfono (ej: 0414, 0412, etc.)
+            const matchTelefono = texto.match(/(?:58)?(0?4\d{9})/);
+            if (matchTelefono) {
+                let tel = matchTelefono[1];
+                if (tel.startsWith('0')) tel = tel.substring(1);
+                if (!tel.startsWith('58')) tel = '58' + tel;
+                document.getElementById('telefonoCliente').value = tel;
             }
+
+            // Nota para el usuario sobre el nombre
+            alert("¡Foto leída! Verifica que la empresa y el teléfono sean correctos y coloca el nombre del destinatario si hace falta.");
         }
 
         function enviarWhatsApp() {
             const empresa = document.getElementById('empresa').value;
-            const tracking = document.getElementById('tracking').value;
             const nombre = document.getElementById('nombreCliente').value.trim() || "Cliente";
             const telefono = document.getElementById('telefonoCliente').value.trim();
-            const destino = document.getElementById('destino').value.toUpperCase().trim() || "SU CIUDAD";
 
-            if (!tracking || !telefono) {
-                alert("Por favor verifica que el tracking esté escaneado y el teléfono del cliente esté escrito.");
+            if (!telefono) {
+                alert("Por favor asegúrate de que el teléfono del cliente esté completo.");
                 return;
             }
 
-            const hoy = new Date();
-            const fechaEnvio = String(hoy.getDate()).padStart(2, '0') + '/' + 
-                               String(hoy.getMonth() + 1).padStart(2, '0') + '/' + 
-                               hoy.getFullYear();
-
             const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
-`Su pedido ya fue enviado. Aquí el resumen:\n\n` +
-`📦 Empresa: ${empresa}\n` +
-`🔢 Tracking: ${tracking}\n` +
-`🏠 Destino: ${destino}\n` +
-`📅 Fecha de envío: ${fechaEnvio}\n\n` +
-`Adjunto la foto de su guía para que pueda rastrear su pedido cuando quiera.\n\n` +
+`Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
 `Gracias por su compra! 🙏\n` +
-`Recuerde que es importante darle los cuidados adecuados:\n` +
-`❤️Mantener limpias y secas.\n` +
-`❤️Alejar de agentes químicos como alcohol, perfumes, cremas y jabones.\n` +
-`❤️Colocar cuando la piel esté seca\n` +
-`❤️No mojar ni usar en playa o piscinas\n` +
-`❤️Evitar hacer ejercicios con ellas\n\n` +
-`De esta manera extenderá la vida útil y brillo de sus piezas ✨ ✨\n\n` +
-`Saludos Myriedesign`;
+`Recuerde que es importante darle los cuidados adecuados a sus piezas:\n` +
+`❤️ Mantener limpias y secas.\n` +
+`❤️ Alejar de químicos (alcohol, perfumes, cremas, jabones).\n` +
+`❤️ Colocar cuando la piel esté seca.\n` +
+`❤️ No mojar ni usar en playa o piscinas.\n` +
+`❤️ Evitar hacer ejercicios con ellas.\n\n` +
+`De esta manera extenderá la vida útil y brillo de sus piezas ✨✨\n\n` +
+`Saludos, Myriedesign`;
 
             const urlWhatsApp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
             window.open(urlWhatsApp, '_blank');
