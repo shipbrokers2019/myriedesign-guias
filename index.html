@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script de IA Mejorado para Filtrar Guías -->
+    <!-- Script de IA Ajustado para Filtro de Nombres -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -93,7 +93,6 @@
                 estado.innerText = "🔍 Leyendo texto de la guía...";
 
                 try {
-                    // Escaneo de texto con Tesseract optimizado en español
                     const resultado = await Tesseract.recognize(urlImagenActual, 'spa');
                     const texto = resultado.data.text;
                     console.log("Texto bruto de la IA:", texto);
@@ -118,18 +117,16 @@
             else if (textoMayus.includes('ZOOM')) document.getElementById('empresa').value = 'ZOOM';
             else if (textoMayus.includes('LAE')) document.getElementById('empresa').value = 'LAE';
 
-            // 2. Detección de Teléfono (Buscando específicamente patrones de celulares venezolanos o números de 10-11 dígitos)
+            // 2. Detección de Teléfono (Celulares venezolanos)
             let telefonoEncontrado = "";
-            // Busca formatos como 0414..., 0424..., 0412..., 0416..., 0426... o sin el 0 inicial
             const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
             const matchesCel = texto.match(regexCelular);
             
             if (matchesCel && matchesCel.length > 0) {
                 telefonoEncontrado = matchesCel[0];
             } else {
-                // Búsqueda secundaria de cualquier secuencia numérica que parezca teléfono (10 a 11 dígitos)
                 const numerosLimpios = texto.replace(/\D/g, ' ');
-                const palabrasNum = numerosLimpios.split(/\s+/).filter(n => n.length >= 10 && n.length <= 11 && !n.startsWith('8464') && !n.startsWith('5117'));
+                const palabrasNum = numerosLimpios.split(/\s+/).filter(n => n.length >= 10 && n.length <= 11 && !n.startsWith('8464') && !n.startsWith('5117') && !n.startsWith('0310'));
                 if (palabrasNum.length > 0) {
                     telefonoEncontrado = palabrasNum[0];
                 }
@@ -140,45 +137,51 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. Detección Inteligente de Nombre (Filtrando cédulas y códigos de barras)
+            // 3. Detección Inteligente y Estricta de Nombre
             let nombreEncontrado = "";
             
+            // Paso A: Buscar líneas que tengan la palabra NOMBRE o DESTINATARIO
             for (let i = 0; i < lineas.length; i++) {
                 let lineaOriginal = lineas[i];
                 let lineaUp = lineaOriginal.toUpperCase();
 
-                // Si encuentra la palabra NOMBRE o DESTINATARIO
                 if (lineaUp.includes('NOMBRE') || lineaUp.includes('DESTINATARIO')) {
-                    // Ver si el nombre está pegado después de los dos puntos
                     let partes = lineaOriginal.split(/[:\-]/);
                     if (partes.length > 1 && partes[1].trim().length > 3) {
-                        nombreEncontrado = partes[1].trim();
-                        break;
+                        let candidato = partes[1].trim();
+                        // Validar que no sea una cédula o número
+                        if (!/\d/.test(candidato)) {
+                            nombreEncontrado = candidato;
+                            break;
+                        }
                     } else if (i + 1 < lineas.length) {
-                        // O está en la línea de abajo
-                        nombreEncontrado = lineas[i + 1];
-                        break;
+                        let candidato = lineas[i + 1].trim();
+                        if (!/\d/.test(candidato) && candidato.length > 3) {
+                            nombreEncontrado = candidato;
+                            break;
+                        }
                     }
                 }
             }
 
-            // Si no encontró por etiqueta, busca líneas que parezcan nombres limpios (letras mayúsculas, sin números ni cédulas)
-            if (!nombreEncontrado || nombreEncontrado.includes('V-') || nombreEncontrado.includes('E-') || /\d/.test(nombreEncontrado)) {
+            // Paso B: Si no lo encontró con etiqueta, buscar líneas que parezcan nombres reales (evitando palabras basura de guías)
+            if (!nombreEncontrado) {
+                const palabrasProhibidas = ['TRACKING', 'BISUTERIA', 'TEALCA', 'MRW', 'ZOOM', 'DOMESA', 'LAE', 'CIUDAD', 'DIRECCION', 'REMITE', 'VALOR', 'ORIGEN', 'DESTINO', 'OFICINA', 'SOBRE', 'PESO', 'COBRAR', 'ENVIADO'];
+                
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
-                    // Ignorar líneas cortas, números, códigos de barras o etiquetas de cédula
+                    let esProhibida = palabrasProhibidas.some(palabra => lUp.includes(palabra));
+                    
                     if (linea.length >= 5 && linea.length <= 30 && 
                         /^[A-ZÁÉÍÓÚÑ\s]+$/.test(linea) && 
-                        !lUp.includes('TEALCA') && !lUp.includes('MRW') && !lUp.includes('ZOOM') && 
-                        !lUp.includes('DOMESA') && !lUp.includes('CIUDAD') && !lUp.includes('DIRECCION') &&
-                        !lUp.includes('DESTINATARIO') && !lUp.includes('REMITE') && !lUp.includes('VALOR')) {
+                        !esProhibida && 
+                        !/\d/.test(linea)) {
                         nombreEncontrado = linea;
                         break;
                     }
                 }
             }
 
-            // Limpieza final por si trae palabras basura
             if (nombreEncontrado) {
                 nombreEncontrado = nombreEncontrado.replace(/NOMBRE|DESTINATARIO|CLIENTE|V-|E-/gi, '').trim();
                 document.getElementById('nombreCliente').value = nombreEncontrado;
@@ -208,7 +211,6 @@
             if (telefono.startsWith('0')) telefono = telefono.substring(1);
             if (!telefono.startsWith('58')) telefono = '58' + telefono;
 
-            // Descargar la foto automáticamente
             if (archivoSeleccionado) {
                 const enlaceDescarga = document.createElement('a');
                 enlaceDescarga.href = urlImagenActual;
@@ -218,7 +220,6 @@
                 document.body.removeChild(enlaceDescarga);
             }
 
-            // Mensaje estructurado exacto
             const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
 `Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
 `Gracias por su compra! 🙏\n\n` +
