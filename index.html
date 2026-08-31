@@ -1,150 +1,22 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Despacho Rápido - Myriedesign</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+Hola Sr./Sra. Ingrid, 👋
 
-    <div class="max-w-md mx-auto p-4">
-        <!-- Header -->
-        <header class="text-center my-6">
-            <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
-            <p class="text-sm text-slate-500">Despacho Rápido de Envíos</p>
-        </header>
+Su pedido ya fue enviado. Aquí el resumen:
 
-        <!-- Selector de Foto y Referencia Visual -->
-        <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
-            <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube o toma la foto. Al enviar, se descargará lista para adjuntar.</p>
-            
-            <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="mostrarVistaPrevia(event)">
-            
-            <!-- Vista previa ampliable de la guía -->
-            <div id="previewBox" class="mt-4 hidden">
-                <img id="imagenPrevia" onclick="verImagenCompleta()" class="max-h-48 mx-auto rounded-xl shadow-lg border-2 border-white/40 object-contain bg-black/30 cursor-pointer" title="Toca para ampliar">
-                <p class="text-xs text-pink-100 mt-2 font-medium">✔️ Guía cargada correctamente</p>
-            </div>
-        </div>
+📦 Empresa: LAE
+🔢 Tracking: 23001300000149
+🏠 Destino: PUERTO LA CRUZ
+📅 Fecha de envío: 27/08/2026
 
-        <!-- Formulario Rápido -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
-            <h2 class="font-semibold text-slate-700 flex justify-between items-center">
-                📝 <span>Datos del Envío</span>
-                <span class="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">Automatizado</span>
-            </h2>
+Adjunto la foto de su guía para que pueda rastrear su pedido cuando quiera.
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Empresa / Courier</label>
-                <select id="empresa" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-medium">
-                    <option value="MRW">MRW</option>
-                    <option value="TEALCA">TEALCA</option>
-                    <option value="LAE">LAE</option>
-                    <option value="ZOOM">ZOOM</option>
-                </select>
-            </div>
+Gracias por su compra! 🙏
+Recuerde que es importante darle los cuidados adecuados:
+❤️Mantener limpias y secas.
+❤️Alejar de agentes químicos como alcohol, perfumes, cremas y jabones.
+❤️Colocar cuando la piel esté seca
+❤️No mojar ni usar en playa o piscinas
+❤️Evitar hacer ejercicios con ellas
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre)</label>
-                <input type="text" id="nombreCliente" placeholder="Ej. Victor" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
-            </div>
+De esta manera extenderá la vida útil y brillo de sus piezas ✨ ✨
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (con código 58)</label>
-                <input type="tel" id="telefonoCliente" placeholder="Ej. 4143939905" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
-            </div>
-        </div>
-
-        <!-- Botón de Acción WhatsApp -->
-        <button onclick="enviarWhatsApp()" class="w-full bg-emerald-600 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition flex items-center justify-center gap-2">
-            💬 Enviar Notificación por WhatsApp
-        </button>
-    </div>
-
-    <!-- Modal simple para ver la foto en grande -->
-    <div id="modalImagen" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4" onclick="cerrarImagenCompleta()">
-        <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
-    </div>
-
-    <!-- Script Corregido -->
-    <script>
-        let archivoSeleccionado = null;
-        let urlImagenActual = "";
-
-        function mostrarVistaPrevia(event) {
-            archivoSeleccionado = event.target.files[0];
-            if (archivoSeleccionado) {
-                const lector = new FileReader();
-                lector.onload = function(e) {
-                    urlImagenActual = e.target.result;
-                    document.getElementById('imagenPrevia').src = urlImagenActual;
-                    document.getElementById('imagenModal').src = urlImagenActual;
-                    document.getElementById('previewBox').classList.remove('hidden');
-                }
-                lector.readAsDataURL(archivoSeleccionado);
-            }
-        }
-
-        function verImagenCompleta() {
-            if (urlImagenActual) {
-                document.getElementById('modalImagen').classList.remove('hidden');
-            }
-        }
-
-        function cerrarImagenCompleta() {
-            document.getElementById('modalImagen').classList.add('hidden');
-        }
-
-        function enviarWhatsApp() {
-            const empresa = document.getElementById('empresa').value;
-            const nombre = document.getElementById('nombreCliente').value.trim() || "Cliente";
-            let telefono = document.getElementById('telefonoCliente').value.trim();
-
-            if (!telefono) {
-                alert("Por favor ingresa el teléfono del destinatario.");
-                return;
-            }
-
-            // Limpieza de formato de teléfono
-            if (telefono.startsWith('0')) {
-                telefono = telefono.substring(1);
-            }
-            if (!telefono.startsWith('58')) {
-                telefono = '58' + telefono;
-            }
-
-            // Descarga automática de la guía al teléfono
-            if (archivoSeleccionado) {
-                const enlaceDescarga = document.createElement('a');
-                enlaceDescarga.href = urlImagenActual;
-                enlaceDescarga.download = `Guia_${nombre.replace(/\s+/g, '_')}_${empresa}.jpg`;
-                document.body.appendChild(enlaceDescarga);
-                enlaceDescarga.click();
-                document.body.removeChild(enlaceDescarga);
-            }
-
-            // Mensaje con el espacio añadido después de "Gracias por su compra!"
-            const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
-`Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
-`Gracias por su compra! 🙏\n\n` +
-`Recuerde que es importante darle los cuidados adecuados a sus piezas:\n` +
-`❤️ Mantener limpias y secas.\n` +
-`❤️ Alejar de químicos (alcohol, perfumes, cremas, jabones).\n` +
-`❤️ Colocar cuando la piel esté seca.\n` +
-`❤️ No mojar ni usar en playa o piscinas.\n` +
-`❤️ Evitar hacer ejercicios con ellas.\n\n` +
-`De esta manera extenderá la vida útil y brillo de sus piezas ✨✨\n\n` +
-`Saludos, Myriedesign`;
-
-            const urlWhatsApp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
-            
-            setTimeout(() => {
-                window.open(urlWhatsApp, '_blank');
-            }, 300);
-        }
-    </script>
-</body>
-</html>
+Saludos Myriedesign
