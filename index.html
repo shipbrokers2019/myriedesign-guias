@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Extracción Exacta para Zoom -->
+    <!-- Script con Reglas Exactas para Zoom y MRW -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -155,26 +155,26 @@
                     }
                 }
             } else if (empresaDetectada === 'ZOOM') {
-                // ZOOM: Captura directa de la línea "Destinatario: NOMBRE - NOMBRE"
+                // ZOOM: Buscar la línea que contenga la etiqueta "DESTINATARIO:" (ignorando remitente)
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
-                    if (lUp.includes('REMITENTE')) continue; // Evitamos confusiones con el remitente
+                    if (lUp.includes('REMITENTE')) continue;
 
-                    if (lUp.includes('DESTINATARIO') || lUp.includes('DEST.')) {
-                        // Quitamos la etiqueta y dejamos el texto limpio
-                        let limpia = linea.replace(/DESTINATARIO|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                    if (lUp.includes('DESTINATARIO') || lUp.includes('DESTINATARI0')) {
+                        // Limpiamos la etiqueta quitando la palabra y los símbolos de separación
+                        let limpia = linea.replace(/DESTINATARI[O0]|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
                         
-                        // Si viene repetido (ej: "VERYGIONETT LOAIZA VERYGIONETT LOAIZA"), partimos y tomamos la primera mitad
-                        const palabras = limpia.split(/\s+/);
-                        if (palabras.length >= 4 && palabras.length % 2 === 0) {
-                            let mitad = palabras.length / 2;
-                            let parte1 = palabras.slice(0, mitad).join(' ');
-                            let parte2 = palabras.slice(mitad).join(' ');
-                            if (parte1 === parte2) {
-                                limpia = parte1;
-                            }
-                        } else if (limpia.includes('-')) {
+                        // Limpiamos duplicados si el nombre sale repetido (ej: "NOMBRE - NOMBRE")
+                        if (limpia.includes('-')) {
                             limpia = limpia.split('-')[0].trim();
+                        } else {
+                            const palabras = limpia.split(/\s+/);
+                            if (palabras.length >= 4 && palabras.length % 2 === 0) {
+                                let mitad = palabras.length / 2;
+                                let parte1 = palabras.slice(0, mitad).join(' ');
+                                let parte2 = palabras.slice(mitad).join(' ');
+                                if (parte1 === parte2) limpia = parte1;
+                            }
                         }
 
                         if (limpia.length > 2) {
@@ -184,11 +184,14 @@
                     }
                 }
             } else if (empresaDetectada === 'MRW') {
+                // MRW: Buscar la línea específica del destinatario evitando el remitente
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
-                    if ((lUp.includes('DEST') || lUp.includes('DESTINATARIO')) && !lUp.includes('REMITENTE')) {
-                        let limpia = linea.replace(/DESTINATARIO|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
-                        if (limpia.length > 2) {
+                    if (lUp.includes('REMITENTE') || lUp.includes('ORIGEN')) continue;
+
+                    if (lUp.includes('DEST') || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE') || lUp.includes('SR')) {
+                        let limpia = linea.replace(/DESTINATARIO|DEST\.?|CLIENTE|SR\.|SRA\./gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        if (limpia.length > 3) {
                             nombreEncontrado = limpia;
                             break;
                         }
