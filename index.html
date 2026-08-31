@@ -66,9 +66,9 @@
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (Aislado)</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (Destinatario)</label>
                 <input type="tel" id="telefonoCliente" placeholder="Número detectado..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono font-bold text-slate-800">
-                <p class="text-[11px] text-slate-400 mt-1">Extraído automáticamente de la guía.</p>
+                <p class="text-[11px] text-slate-400 mt-1">Extraído de la sección de destino.</p>
             </div>
         </div>
 
@@ -83,7 +83,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Extracción Avanzada de Teléfono y Nombre -->
+    <!-- Script con Extracción de Teléfono enfocada en Destinatario -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -187,7 +187,6 @@
             let regexEtiquetas = new RegExp(palabrasNegras.join('|'), 'gi');
             limpio = limpio.replace(regexEtiquetas, ' ');
 
-            // Eliminar teléfonos y cédulas para que queden fuera del nombre
             limpio = limpio.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, ' ');
             limpio = limpio.replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, ' ');
 
@@ -202,35 +201,48 @@
             return limpio;
         }
 
-        // Extractor de teléfono ultra preciso
-        function extraerTelefonoAvanzado(textoCompleto) {
-            // 1. Buscar formato con prefijo explícito (TLF: 0414...)
-            const regexTlfEtiqueta = /(?:TLF|TELF|TEL|TELEFONO)[:.\s]*0?((?:414|424|412|416|426)\d{7})/i;
-            let matchEtiqueta = textoCompleto.match(regexTlfEtiqueta);
-            if (matchEtiqueta && matchEtiqueta[1]) {
-                return matchEtiqueta[1];
-            }
+        // Extractor de teléfono enfocado en la sección de Destino / PEST / DEST
+        function extraerTelefonoDestinatario(textoCompleto, bloques) {
+            let telefonoEncontrado = "";
 
-            // 2. Buscar cualquier celda móvil venezolana de 11 dígitos directos
-            const regexCelularDirecto = /\b(0(?:414|424|412|416|426)\d{7})\b/;
-            let matchDirecto = textoCompleto.match(regexCelularDirecto);
-            if (matchDirecto && matchDirecto[1]) {
-                let num = matchDirecto[1];
-                if (num.startsWith('0')) num = num.substring(1);
-                return num;
-            }
-
-            // 3. Búsqueda flexible por si Tesseract pegó mal los ceros o espacios
-            const numerosEnTexto = textoCompleto.replace(/\D/g, ' ');
-            const palabrasNum = numerosEnTexto.split(/\s+/).filter(n => n.length >= 10 && n.length <= 11);
-            for (let n of palabrasNum) {
-                if (n.startsWith('414') || n.startsWith('424') || n.startsWith('412') || n.startsWith('416') || n.startsWith('426') || n.startsWith('04')) {
-                    if (n.startsWith('0')) n = n.substring(1);
-                    if (n.length === 10) return n;
+            // 1. Buscar primero dentro del bloque que contenga 'DEST' o 'PEST' (donde está el cliente que recibe)
+            for (let b of bloques) {
+                let bUp = b.toUpperCase();
+                if (bUp.includes('DEST') || bUp.includes('PEST') || bUp.includes('TLF')) {
+                    const matchCel = b.match(/0?((?:414|424|412|416|426)\d{7})/);
+                    if (matchCel && matchCel[1]) {
+                        telefonoEncontrado = matchCel[1];
+                        break;
+                    }
                 }
             }
 
-            return "";
+            // 2. Si no aparece en el bloque DEST, buscar cualquier teléfono que esté acompañado de la etiqueta TLF en todo el texto
+            if (!telefonoEncontrado) {
+                const regexTlfEtiqueta = /(?:TLF|TELF|TEL|TELEFONO)[:.\s]*0?((?:414|424|412|416|426)\d{7})/i;
+                let matchEtiqueta = textoCompleto.match(regexTlfEtiqueta);
+                if (matchEtiqueta && matchEtiqueta[1]) {
+                    telefonoEncontrado = matchEtiqueta[1];
+                }
+            }
+
+            // 3. Como último recurso, si hay varios números, intentamos evitar el de arriba (origen) y tomamos el que aparezca más abajo
+            if (!telefonoEncontrado) {
+                const matchesTodos = [...textoCompleto.matchAll(/\b0?((?:414|424|412|416|426)\d{7})\b/g)];
+                if (matchesTodos.length > 0) {
+                    // Si hay más de uno, por lo general el último o el segundo suele ser el del destinatario en MRW
+                    let ultimoMatch = matchesTodos[matchesTodos.length - 1];
+                    if (ultimoMatch && ultimoMatch[1]) {
+                        telefonoEncontrado = ultimoMatch[1];
+                    }
+                }
+            }
+
+            if (telefonoEncontrado && telefonoEncontrado.startsWith('0')) {
+                telefonoEncontrado = telefonoEncontrado.substring(1);
+            }
+
+            return telefonoEncontrado;
         }
 
         function extraerDatosConPrecision(bloques, textoCompleto) {
@@ -243,8 +255,8 @@
             else if (textoMayus.includes('LAE')) empresaDetectada = 'LAE';
             document.getElementById('empresa').value = empresaDetectada;
 
-            // Extraer Teléfono limpio
-            let telefonoLimpio = extraerTelefonoAvanzado(textoCompleto);
+            // Extraer el teléfono específico del destinatario
+            let telefonoLimpio = extraerTelefonoDestinatario(textoCompleto, bloques);
             if (telefonoLimpio) {
                 document.getElementById('telefonoCliente').value = telefonoLimpio;
             }
