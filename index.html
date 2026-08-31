@@ -23,7 +23,7 @@
         <!-- Selector de Foto y Escáner -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube la foto y la IA aislará nombre y teléfono.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube la foto y la IA rellenará los campos correctamente.</p>
             
             <input type="file" id="fotoGuia" accept="image/*,.heic,.HEIC" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarGuiaInteligente(event)">
             
@@ -38,7 +38,7 @@
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
                 📝 <span>Datos de Destino</span>
-                <span class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Filtro Quirúrgico</span>
+                <span class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Auto-relleno IA</span>
             </h2>
 
             <div>
@@ -53,7 +53,7 @@
 
             <!-- Selector rápido interactivo -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Posibles nombres detectados:</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Si el nombre no es exacto, escoge otro aquí:</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
                     <option value="">-- Selecciona el destinatario correcto --</option>
                 </select>
@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Actualizado con Extracción Quirúrgica -->
+    <!-- Script Corregido y Seguro -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -115,14 +115,14 @@
                 document.getElementById('imagenPrevia').src = urlImagenActual;
                 document.getElementById('imagenModal').src = urlImagenActual;
                 
-                estado.innerText = "🔍 Extrayendo datos clave...";
+                estado.innerText = "🔍 Leyendo texto con IA...";
 
                 try {
                     const resultado = await Tesseract.recognize(urlImagenActual, 'spa', {
                         logger: m => {
                             if (m.status === 'recognizing text') {
                                 let porc = Math.round(m.progress * 100);
-                                estado.innerText = `🔍 Leyendo datos... ${porc}%`;
+                                estado.innerText = `🔍 Leyendo texto... ${porc}%`;
                             }
                         }
                     });
@@ -130,8 +130,8 @@
                     const texto = resultado.data.text;
                     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
                     
-                    procesarLineaRevoltijo(lineas, texto);
-                    estado.innerText = "✅ ¡Datos extraídos con éxito!";
+                    extraerDatosSeguros(lineas, texto);
+                    estado.innerText = "✅ ¡Datos procesados con éxito!";
                 } catch (error) {
                     console.error(error);
                     estado.innerText = "⚠️ Error en la lectura.";
@@ -140,7 +140,29 @@
             lector.readAsDataURL(archivo);
         }
 
-        function procesarLineaRevoltijo(lineas, textoCompleto) {
+        function limpiarNombreSimple(textoBruto) {
+            let limpio = textoBruto.toUpperCase();
+
+            // Quitamos palabras clave de control térmico comunes pero de forma segura
+            const palabrasBasura = [
+                'INATARIO', 'DESTINATARIO', 'DESTINATARI0', 'DEST', 'PEST', 
+                'CEDULA', 'C.I.', 'EFONO', 'TELEFONO', 'TEL', 'TLF', 'TELF',
+                'NOMBRE', 'SR', 'SRA', 'SRTA', 'CLIENTE'
+            ];
+
+            let regex = new RegExp('\\b(' + palabrasBasura.join('|') + ')\\b', 'gi');
+            limpio = limpio.replace(regex, ' ');
+
+            // Quitar cédulas que hayan quedado pegadas
+            limpio = limpio.replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, ' ');
+            // Quitar símbolos extraños de separación
+            limpio = limpio.replace(/[:_\\/*#|\-—]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+            if (/^\d+$/.test(limpio) || limpio.length < 3) return "";
+            return limpio;
+        }
+
+        function extraerDatosSeguros(lineas, textoCompleto) {
             // 1. Detectar empresa
             let textoMayus = textoCompleto.toUpperCase();
             let empresaDetectada = 'MRW';
@@ -149,7 +171,7 @@
             else if (textoMayus.includes('LAE')) empresaDetectada = 'LAE';
             document.getElementById('empresa').value = empresaDetectada;
 
-            // 2. Extraer Teléfono (Filtro exacto de móviles venezolanos)
+            // 2. Extraer Teléfono (Método robusto original)
             let telefonoEncontrado = "";
             const matchesTlf = [...textoCompleto.matchAll(/\b0?((?:414|424|412|416|426)\d{7})\b/g)];
             if (matchesTlf.length > 0) {
@@ -162,36 +184,38 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. Destilar el nombre de la "línea revoltijo" o de cualquier parte de la guía
-            let nombresDetectados = [];
+            // 3. Extraer Nombre buscando líneas que contengan las palabras clave de destino
+            let nombresCandidatos = [];
 
-            for (let linea of lineas) {
-                let lUp = linea.toUpperCase();
+            for (let i = 0; i < lineas.length; i++) {
+                let lUp = lineas[i].toUpperCase();
 
-                // Buscamos líneas que contengan indicios de destinatario o nombres comunes
-                if (lUp.includes('INATARIO') || lUp.includes('DEST') || lUp.includes('NOMBRE') || lUp.includes('MARIA') || lUp.split(' ').length >= 2) {
-                    
-                    // Limpieza profunda de palabras basura de la guía térmica
-                    let limpio = lUp
-                        .replace(/INATARIO|DESTINATARIO|DEST|CEDULA|C\.I\.|EFONO|TELEFONO|TEL|TLF|TELF|NOMBRE|ENTREGA|CIUDAD|TURMERO|BARCELONA|CARACAS|VALENCIA|MARACAY|SUC|AGENCIA/g, ' ')
-                        .replace(/\b0?((?:414|424|412|416|426)\d{7})\b/g, ' ') // quitar teléfonos
-                        .replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, ' ') // quitar cédulas
-                        .replace(/[:\-_\\/*#|]+/g, ' ') // quitar símbolos raros
-                        .replace(/\s+/g, ' ')
-                        .trim();
-
-                    // Si quedan palabras con sentido (mínimo 2 letras por palabra y al menos 2 palabras como Nombre y Apellido)
-                    if (limpio.length >= 4 && limpio.split(' ').some(w => w.length > 2)) {
-                        // Filtramos si solo son números o abreviaturas sueltas
-                        if (!/^\d+$/.test(limpio)) {
-                            nombresDetectados.push(limpio);
+                if (lUp.includes('INATARIO') || lUp.includes('DEST') || lUp.includes('NOMBRE')) {
+                    let limpio = limpiarNombreSimple(lineas[i]);
+                    if (limpio.length >= 3) {
+                        nombresCandidatos.push(limpio);
+                    }
+                    // A veces el nombre viene en la línea de al lado o en la siguiente inmediata
+                    if (i + 1 < lineas.length) {
+                        let limpioSig = limpiarNombreSimple(lineas[i + 1]);
+                        if (limpioSig.length >= 3) {
+                            nombresCandidatos.push(limpioSig);
                         }
                     }
                 }
             }
 
-            // Eliminar duplicados
-            let unicos = [...new Set(nombresDetectados)];
+            // Si no encontró por etiqueta estricta, buscamos líneas generales que parezcan nombres
+            if (nombresCandidatos.length === 0) {
+                for (let linea of lineas) {
+                    let limpioGen = limpiarNombreSimple(linea);
+                    if (limpioGen.split(' ').length >= 2 && limpioGen.length > 4) {
+                        nombresCandidatos.push(limpioGen);
+                    }
+                }
+            }
+
+            let unicos = [...new Set(nombresCandidatos)].filter(n => n.length > 2);
 
             if (unicos.length > 0) {
                 document.getElementById('nombreCliente').value = unicos[0];
