@@ -69,7 +69,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Automatización de Descarga -->
+    <!-- Script Corregido -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -100,7 +100,7 @@
 
         function enviarWhatsApp() {
             const empresa = document.getElementById('empresa').value;
-            const nombre = document.getElementById('nombreCliente'].value.trim() || "Cliente";
+            const nombre = document.getElementById('nombreCliente').value.trim() || "Cliente";
             let telefono = document.getElementById('telefonoCliente').value.trim();
 
             if (!telefono) {
@@ -116,7 +116,7 @@
                 telefono = '58' + telefono;
             }
 
-            // AUTOMATIZACIÓN 1: Descargar la foto de la guía al teléfono al instante
+            // Descarga automática de la guía al teléfono
             if (archivoSeleccionado) {
                 const enlaceDescarga = document.createElement('a');
                 enlaceDescarga.href = urlImagenActual;
@@ -126,7 +126,7 @@
                 document.body.removeChild(enlaceDescarga);
             }
 
-            // Mensaje estructurado con el espacio exacto pedido
+            // Mensaje con el espacio añadido después de "Gracias por su compra!"
             const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
 `Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
 `Gracias por su compra! 🙏\n\n` +
@@ -139,12 +139,11 @@
 `De esta manera extenderá la vida útil y brillo de sus piezas ✨✨\n\n` +
 `Saludos, Myriedesign`;
 
-            // AUTOMATIZACIÓN 2: Abrir WhatsApp con el número y el texto ya redactado
             const urlWhatsApp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
             
             setTimeout(() => {
                 window.open(urlWhatsApp, '_blank');
-            }, 500);
+            }, 300);
         }
     </script>
 </body>
