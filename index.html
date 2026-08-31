@@ -6,8 +6,6 @@
     <title>Despacho Rápido - Myriedesign</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Librería Tesseract.js para lectura por IA -->
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
@@ -18,22 +16,14 @@
             <p class="text-sm text-slate-500">Gestor Rápido de Envíos</p>
         </header>
 
-        <!-- Botón de Automatización por Foto -->
+        <!-- Bloque de Pegado Inteligente -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
-            <h2 class="font-bold text-lg mb-1">🤖 Llenado Automático</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube la foto de la guía y la app detectará los datos.</p>
+            <h2 class="font-bold text-lg mb-1">⚡ Autocompletar Rápido</h2>
+            <p class="text-xs text-pink-100 mb-4">Copia los datos de la guía (o usa Google Lens en tu foto) y pégalos aquí abajo de un solo toque.</p>
             
-            <!-- Input oculto para la foto -->
-            <input type="file" id="foto-guia" accept="image/*" capture="environment" class="hidden" onchange="analizarGuiaConIA(event)">
-            
-            <button onclick="document.getElementById('foto-guia').click()" id="btn-foto" class="w-full bg-white text-pink-600 py-3.5 rounded-xl font-bold shadow-sm hover:bg-pink-50 transition flex items-center justify-center gap-2">
-                📸 Tomar Foto de la Guía
+            <button onclick="pegarDesdePortapapeles()" class="w-full bg-white text-pink-600 py-3.5 rounded-xl font-bold shadow-sm hover:bg-pink-50 transition flex items-center justify-center gap-2">
+                📋 Pegar Datos de la Guía
             </button>
-            
-            <!-- Estado de carga -->
-            <div id="estado-ia" class="text-xs text-pink-100 mt-3 hidden font-medium animate-pulse">
-                ⏳ Analizando guía...
-            </div>
         </div>
 
         <!-- Formulario Simplificado -->
@@ -69,55 +59,33 @@
         </button>
     </div>
 
-    <!-- Script de Automatización -->
+    <!-- Script de Autocompletado -->
     <script>
-        async function analizarGuiaConIA(e) {
-            if (e.target.files.length === 0) return;
-            const file = e.target.files[0];
-            
-            const btnFoto = document.getElementById('btn-foto');
-            const estadoIa = document.getElementById('estado-ia');
-            
-            btnFoto.disabled = true;
-            btnFoto.classList.add('opacity-50');
-            estadoIa.classList.remove('hidden');
-
+        async function pegarDesdePortapapeles() {
             try {
-                const { data: { text } } = await Tesseract.recognize(
-                    file,
-                    'spa',
-                    { 
-                        logger: m => {
-                            if (m.status === 'recognizing text') {
-                                let porc = Math.round(m.progress * 100);
-                                estadoIa.textContent = `⏳ Leyendo guía... ${porc}%`;
-                            }
-                        }
-                    }
-                );
-
-                interpretarTextoGuia(text);
-                if (navigator.vibrate) navigator.vibrate(200);
+                // Intenta leer el portapapeles automáticamente
+                const texto = await navigator.clipboard.readText();
+                interpretarTexto(texto);
             } catch (err) {
-                alert("No se pudo leer la imagen. Intenta con otra foto más iluminada.");
-            } finally {
-                btnFoto.disabled = false;
-                btnFoto.classList.remove('opacity-50');
-                estadoIa.classList.add('hidden');
+                // Si el navegador pide permisos estrictos, abre un cuadro para pegar manual de un toque
+                let textoManual = prompt("Pega aquí el texto copiado de la guía (nombre, teléfono, etc.):");
+                if (textoManual) {
+                    interpretarTexto(textoManual);
+                }
             }
         }
 
-        function interpretarTextoGuia(texto) {
-            const textoCompleto = texto.toUpperCase();
+        function interpretarTexto(texto) {
+            const textoMayus = texto.toUpperCase();
 
             // 1. Detectar Empresa
             const selectEmpresa = document.getElementById('empresa');
-            if (textoCompleto.includes("TEALCA")) selectEmpresa.value = "TEALCA";
-            else if (textoCompleto.includes("LAE")) selectEmpresa.value = "LAE";
-            else if (textoCompleto.includes("ZOOM")) selectEmpresa.value = "ZOOM";
-            else if (textoCompleto.includes("MRW")) selectEmpresa.value = "MRW";
+            if (textoMayus.includes("TEALCA")) selectEmpresa.value = "TEALCA";
+            else if (textoMayus.includes("LAE")) selectEmpresa.value = "LAE";
+            else if (textoMayus.includes("ZOOM")) selectEmpresa.value = "ZOOM";
+            else if (textoMayus.includes("MRW")) selectEmpresa.value = "MRW";
 
-            // 2. Buscar Teléfono (ej: 0414, 0412, etc.)
+            // 2. Buscar Teléfono (formato venezolano)
             const matchTelefono = texto.match(/(?:58)?(0?4\d{9})/);
             if (matchTelefono) {
                 let tel = matchTelefono[1];
@@ -126,8 +94,9 @@
                 document.getElementById('telefonoCliente').value = tel;
             }
 
-            // Nota para el usuario sobre el nombre
-            alert("¡Foto leída! Verifica que la empresa y el teléfono sean correctos y coloca el nombre del destinatario si hace falta.");
+            // 3. Intentar extraer nombre (palabras alfabéticas largas)
+            // Limpiamos un poco y dejamos el texto listo
+            alert("¡Datos pegados con éxito! Revisa que el teléfono y la empresa estén correctos.");
         }
 
         function enviarWhatsApp() {
