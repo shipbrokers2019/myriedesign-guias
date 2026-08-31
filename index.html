@@ -49,18 +49,18 @@
                 </select>
             </div>
 
-            <!-- Selector rápido si la IA duda en Zoom -->
+            <!-- Selector rápido interactivo por si la IA no lo adivina de primera -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca el nombre correcto detectado:</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea correcta (se limpiará sola):</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
-                    <option value="">-- Selecciona el nombre si no cargó --</option>
+                    <option value="">-- Selecciona el texto de la guía --</option>
                 </select>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre y Cédula)</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Solo Nombre)</label>
                 <input type="text" id="nombreCliente" placeholder="Esperando foto..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
-                <p class="text-[11px] text-slate-400 mt-1">Verifica si el nombre es correcto o edítalo manualmente.</p>
+                <p class="text-[11px] text-slate-400 mt-1">Limpio de cédulas y números automáticamente.</p>
             </div>
 
             <div>
@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Selector de Respaldo Interactivo -->
+    <!-- Script con Filtro y Limpieza Profunda de Nombres -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -116,6 +116,46 @@
             lector.readAsDataURL(archivoSeleccionado);
         }
 
+        // FUNCIÓN CLAVE: Limpia cédulas, teléfonos, guiones y basura del texto seleccionado
+        function limpiarNombre(textoBruto) {
+            if (!textoBruto) return "";
+
+            let limpio = textoBruto.toUpperCase();
+
+            // 1. Quitar prefijos comunes de etiquetas
+            limpiado = limpio.replace(/DESTINATARI[O0]|DEST\.?|NOMBRE|CLIENTE|SR\.|SRA\./gi, '');
+
+            // 2. Eliminar patrones de cédula (Ej: V-12345678, E12345678, V12.345.678)
+            limpiado = limpiado.replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, '');
+
+            // 3. Eliminar números de teléfono que se hayan mezclado
+            limpiado = limpiado.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '');
+
+            // 4. Si hay guiones, separar y tomar la parte que tenga más pinta de nombre (por lo general el lado izquierdo)
+            if (limpiado.includes('-')) {
+                let partes = limpiado.split('-');
+                // Buscamos la parte que tenga más palabras de texto
+                let mejorParte = partes.reduce((a, b) => a.trim().split(' ').length >= b.trim().split(' ').length ? a : b);
+                limpiado = mejorParte;
+            }
+
+            // 5. Quitar caracteres extraños sobrantes
+            limpiado = limpiado.replace(/[:_\\/]+/g, ' ').trim();
+
+            // 6. Si el nombre viene duplicado simétricamente (ej: "VERYGIONETT LOAIZA VERYGIONETT LOAIZA"), cortamos la mitad
+            const palabras = limpiado.split(/\s+/);
+            if (palabras.length >= 4 && palabras.length % 2 === 0) {
+                let mitad = palabras.length / 2;
+                let p1 = palabras.slice(0, mitad).join(' ');
+                let p2 = palabras.slice(mitad).join(' ');
+                if (p1 === p2) {
+                    limpiado = p1;
+                }
+            }
+
+            return limpiado.replace(/\s+/g, ' ').trim();
+        }
+
         function extraerDatosConPrecision(lineas, texto) {
             const textoMayus = texto.toUpperCase();
 
@@ -148,27 +188,23 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. INTENTO DE EXTRACCIÓN AUTOMÁTICA
+            // 3. BUSCAR Y LIMPIAR AUTOMÁTICAMENTE EL NOMBRE
             let nombreEncontrado = "";
             const palabrasBasura = ['AV', 'CALLE', 'EDIF', 'PISO', 'LOCAL', 'ZONA', 'CENTRO', 'URB', 'FINAL', 'INTERCOMUNAL', 'CC', 'CCS', 'MRW', 'ZOOM', 'TEALCA', 'REMITENTE', 'DESTINATARIO', 'MER', 'COBRAR', 'PESO', 'KG'];
 
             for (let linea of lineas) {
-                let limpia = linea.replace(/[:\-_\/]+/g, ' ').trim();
-                let limpiaUp = limpia.toUpperCase();
-
-                let esBasura = palabrasBasura.some(palabra => {
-                    let regex = new RegExp(`\\b${palabra}\\b`, 'i');
-                    return regex.test(limpiaUp);
-                });
-
-                if (esBasura) continue;
-
-                let palabras = limpia.split(/\s+/);
-                let esSoloLetras = palabras.every(p => /^[A-ZÁÉÍÓÚÑ]+$/i.test(p));
-
-                if (esSoloLetras && palabras.length >= 2 && palabras.length <= 5 && limpia.length > 6) {
-                    nombreEncontrado = limpia;
-                    break;
+                let limpiaTest = linea.toUpperCase();
+                let esBasura = palabrasBasura.some(palabra => new RegExp(`\\b${palabra}\\b`, 'i').test(limpiaTest));
+                
+                if (!esBasura && linea.length > 6) {
+                    let resultadoLimpio = limpiarNombre(linea);
+                    let numPalabras = resultadoLimpio.split(' ').length;
+                    
+                    // Validamos que parezca un nombre real (de 2 a 4 palabras y sin números)
+                    if (numPalabras >= 2 && numPalabras <= 4 && !/\d/.test(resultadoLimpio)) {
+                        nombreEncontrado = resultadoLimpio;
+                        break;
+                    }
                 }
             }
 
@@ -176,15 +212,15 @@
                 document.getElementById('nombreCliente').value = nombreEncontrado;
             }
 
-            // 4. CREAR SELECTOR INTERACTIVO CON TODAS LAS LÍNEAS DETECTADAS (IDEAL PARA ZOOM)
+            // 4. LLENAR EL SELECTOR RÁPIDO INTERACTIVO CON LÍNEAS LIMPIAS
             const selectSugerencias = document.getElementById('listaSugerencias');
-            selectSugerencias.innerHTML = '<option value="">-- Toca aquí para elegir el nombre correcto --</option>';
+            selectSugerencias.innerHTML = '<option value="">-- Toca la línea correcta y se limpiará sola --</option>';
             
             lineas.forEach(l => {
                 if (l.length > 4 && !l.toUpperCase().includes('ZOOM') && !l.toUpperCase().includes('MRW')) {
                     let opt = document.createElement('option');
                     opt.value = l;
-                    opt.textContent = l;
+                    opt.textContent = l; // Muestra la línea original para que la ubiques fácil
                     selectSugerencias.appendChild(opt);
                 }
             });
@@ -192,10 +228,11 @@
             document.getElementById('selectorRapidoContainer').classList.remove('hidden');
         }
 
+        // Al tocar cualquier sugerencia, pasa por la aspiradora de limpieza y cae impecable en el input
         function seleccionarSugerencia(select) {
             if (select.value) {
-                let limpio = select.value.replace(/[:\-_\/]+/g, ' ').trim();
-                document.getElementById('nombreCliente').value = limpio;
+                let nombreLimpioFinal = limpiarNombre(select.value);
+                document.getElementById('nombreCliente').value = nombreLimpioFinal;
             }
         }
 
