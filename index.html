@@ -6,6 +6,8 @@
     <title>Despacho Rápido - Myriedesign</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tesseract.js para IA de lectura -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
@@ -13,28 +15,28 @@
         <!-- Header -->
         <header class="text-center my-6">
             <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
-            <p class="text-sm text-slate-500">Despacho Asistido de Envíos</p>
+            <p class="text-sm text-slate-500">Lector Inteligente de Guías</p>
         </header>
 
-        <!-- Selector de Foto y Referencia Visual -->
+        <!-- Selector de Foto y Escáner -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube o toma la foto para tenerla de referencia visual clara.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube la foto y la IA rellenará los campos automáticamente.</p>
             
-            <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="mostrarVistaPrevia(event)">
+            <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarGuiaInteligente(event)">
             
-            <!-- Vista previa ampliable de la guía -->
+            <!-- Vista previa y estado -->
             <div id="previewBox" class="mt-4 hidden">
                 <img id="imagenPrevia" onclick="verImagenCompleta()" class="max-h-48 mx-auto rounded-xl shadow-lg border-2 border-white/40 object-contain bg-black/30 cursor-pointer" title="Toca para ampliar">
-                <p class="text-xs text-pink-100 mt-2 font-medium">✔️ Guía cargada (Toca la foto para ampliarla)</p>
+                <p id="estadoLectura" class="text-xs text-pink-100 mt-2 font-medium">✨ Analizando guía...</p>
             </div>
         </div>
 
-        <!-- Formulario Asistido con Leyendas -->
+        <!-- Formulario Automatizado -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
-                📝 <span>Datos del Envío</span>
-                <span class="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">Paso a Paso</span>
+                📝 <span>Datos Detectados</span>
+                <span class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Auto-relleno IA</span>
             </h2>
 
             <div>
@@ -45,19 +47,18 @@
                     <option value="ZOOM">ZOOM</option>
                     <option value="LAE">LAE</option>
                 </select>
-                <p class="text-[11px] text-slate-400 mt-1">Selecciona la agencia por donde viaja el paquete.</p>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre)</label>
-                <input type="text" id="nombreCliente" placeholder="Ej. Mario Foria" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
-                <p class="text-[11px] text-slate-400 mt-1">Escribe el nombre tal como aparece en la guía.</p>
+                <input type="text" id="nombreCliente" placeholder="Esperando foto..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
+                <p class="text-[11px] text-slate-400 mt-1">Verifica si el nombre es correcto.</p>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (con código)</label>
-                <input type="tel" id="telefonoCliente" placeholder="Ej. 04144609228" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
-                <p class="text-[11px] text-slate-400 mt-1">Número de contacto del cliente para el mensaje.</p>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono</label>
+                <input type="tel" id="telefonoCliente" placeholder="Esperando foto..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
+                <p class="text-[11px] text-slate-400 mt-1">Número detectado en la guía.</p>
             </div>
         </div>
 
@@ -67,27 +68,120 @@
         </button>
     </div>
 
-    <!-- Modal simple para ver la foto en grande -->
+    <!-- Modal para ver foto -->
     <div id="modalImagen" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4" onclick="cerrarImagenCompleta()">
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Funcional -->
+    <!-- Script de IA Mejorado para Filtrar Guías -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
 
-        function mostrarVistaPrevia(event) {
+        async function procesarGuiaInteligente(event) {
             archivoSeleccionado = event.target.files[0];
-            if (archivoSeleccionado) {
-                const lector = new FileReader();
-                lector.onload = function(e) {
-                    urlImagenActual = e.target.result;
-                    document.getElementById('imagenPrevia').src = urlImagenActual;
-                    document.getElementById('imagenModal').src = urlImagenActual;
-                    document.getElementById('previewBox').classList.remove('hidden');
+            if (!archivoSeleccionado) return;
+
+            const lector = new FileReader();
+            lector.onload = async function(e) {
+                urlImagenActual = e.target.result;
+                document.getElementById('imagenPrevia').src = urlImagenActual;
+                document.getElementById('imagenModal').src = urlImagenActual;
+                document.getElementById('previewBox').classList.remove('hidden');
+                
+                const estado = document.getElementById('estadoLectura');
+                estado.innerText = "🔍 Leyendo texto de la guía...";
+
+                try {
+                    // Escaneo de texto con Tesseract optimizado en español
+                    const resultado = await Tesseract.recognize(urlImagenActual, 'spa');
+                    const texto = resultado.data.text;
+                    console.log("Texto bruto de la IA:", texto);
+
+                    extraerDatosConPrecision(texto);
+                    estado.innerText = "✅ ¡Datos rellenados automáticamente!";
+                } catch (error) {
+                    console.error(error);
+                    estado.innerText = "⚠️ Error al leer. Puedes rellenar manual.";
                 }
-                lector.readAsDataURL(archivoSeleccionado);
+            };
+            lector.readAsDataURL(archivoSeleccionado);
+        }
+
+        function extraerDatosConPrecision(texto) {
+            const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const textoMayus = texto.toUpperCase();
+
+            // 1. Detección de Empresa Courier
+            if (textoMayus.includes('TEALCA')) document.getElementById('empresa').value = 'TEALCA';
+            else if (textoMayus.includes('MRW')) document.getElementById('empresa').value = 'MRW';
+            else if (textoMayus.includes('ZOOM')) document.getElementById('empresa').value = 'ZOOM';
+            else if (textoMayus.includes('LAE')) document.getElementById('empresa').value = 'LAE';
+
+            // 2. Detección de Teléfono (Buscando específicamente patrones de celulares venezolanos o números de 10-11 dígitos)
+            let telefonoEncontrado = "";
+            // Busca formatos como 0414..., 0424..., 0412..., 0416..., 0426... o sin el 0 inicial
+            const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
+            const matchesCel = texto.match(regexCelular);
+            
+            if (matchesCel && matchesCel.length > 0) {
+                telefonoEncontrado = matchesCel[0];
+            } else {
+                // Búsqueda secundaria de cualquier secuencia numérica que parezca teléfono (10 a 11 dígitos)
+                const numerosLimpios = texto.replace(/\D/g, ' ');
+                const palabrasNum = numerosLimpios.split(/\s+/).filter(n => n.length >= 10 && n.length <= 11 && !n.startsWith('8464') && !n.startsWith('5117'));
+                if (palabrasNum.length > 0) {
+                    telefonoEncontrado = palabrasNum[0];
+                }
+            }
+
+            if (telefonoEncontrado) {
+                if (telefonoEncontrado.startsWith('0')) telefonoEncontrado = telefonoEncontrado.substring(1);
+                document.getElementById('telefonoCliente').value = telefonoEncontrado;
+            }
+
+            // 3. Detección Inteligente de Nombre (Filtrando cédulas y códigos de barras)
+            let nombreEncontrado = "";
+            
+            for (let i = 0; i < lineas.length; i++) {
+                let lineaOriginal = lineas[i];
+                let lineaUp = lineaOriginal.toUpperCase();
+
+                // Si encuentra la palabra NOMBRE o DESTINATARIO
+                if (lineaUp.includes('NOMBRE') || lineaUp.includes('DESTINATARIO')) {
+                    // Ver si el nombre está pegado después de los dos puntos
+                    let partes = lineaOriginal.split(/[:\-]/);
+                    if (partes.length > 1 && partes[1].trim().length > 3) {
+                        nombreEncontrado = partes[1].trim();
+                        break;
+                    } else if (i + 1 < lineas.length) {
+                        // O está en la línea de abajo
+                        nombreEncontrado = lineas[i + 1];
+                        break;
+                    }
+                }
+            }
+
+            // Si no encontró por etiqueta, busca líneas que parezcan nombres limpios (letras mayúsculas, sin números ni cédulas)
+            if (!nombreEncontrado || nombreEncontrado.includes('V-') || nombreEncontrado.includes('E-') || /\d/.test(nombreEncontrado)) {
+                for (let linea of lineas) {
+                    let lUp = linea.toUpperCase();
+                    // Ignorar líneas cortas, números, códigos de barras o etiquetas de cédula
+                    if (linea.length >= 5 && linea.length <= 30 && 
+                        /^[A-ZÁÉÍÓÚÑ\s]+$/.test(linea) && 
+                        !lUp.includes('TEALCA') && !lUp.includes('MRW') && !lUp.includes('ZOOM') && 
+                        !lUp.includes('DOMESA') && !lUp.includes('CIUDAD') && !lUp.includes('DIRECCION') &&
+                        !lUp.includes('DESTINATARIO') && !lUp.includes('REMITE') && !lUp.includes('VALOR')) {
+                        nombreEncontrado = linea;
+                        break;
+                    }
+                }
+            }
+
+            // Limpieza final por si trae palabras basura
+            if (nombreEncontrado) {
+                nombreEncontrado = nombreEncontrado.replace(/NOMBRE|DESTINATARIO|CLIENTE|V-|E-/gi, '').trim();
+                document.getElementById('nombreCliente').value = nombreEncontrado;
             }
         }
 
@@ -107,19 +201,14 @@
             let telefono = document.getElementById('telefonoCliente').value.trim();
 
             if (!telefono) {
-                alert("Por favor ingresa el teléfono del destinatario.");
+                alert("Por favor verifica el teléfono del destinatario.");
                 return;
             }
 
-            // Limpieza de formato de teléfono
-            if (telefono.startsWith('0')) {
-                telefono = telefono.substring(1);
-            }
-            if (!telefono.startsWith('58')) {
-                telefono = '58' + telefono;
-            }
+            if (telefono.startsWith('0')) telefono = telefono.substring(1);
+            if (!telefono.startsWith('58')) telefono = '58' + telefono;
 
-            // Descarga automática de la guía al celular al enviar
+            // Descargar la foto automáticamente
             if (archivoSeleccionado) {
                 const enlaceDescarga = document.createElement('a');
                 enlaceDescarga.href = urlImagenActual;
@@ -129,7 +218,7 @@
                 document.body.removeChild(enlaceDescarga);
             }
 
-            // Mensaje con el espacio añadido después de "Gracias por su compra!"
+            // Mensaje estructurado exacto
             const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
 `Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
 `Gracias por su compra! 🙏\n\n` +
