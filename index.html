@@ -13,28 +13,28 @@
         <!-- Header -->
         <header class="text-center my-6">
             <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
-            <p class="text-sm text-slate-500">Gestor Rápido de Envíos</p>
+            <p class="text-sm text-slate-500">Despacho Rápido de Envíos</p>
         </header>
 
-        <!-- Selector de Foto con Vista Previa -->
+        <!-- Selector de Foto y Referencia Visual -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Toma o selecciona la foto de la guía para procesarla.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube o toma la foto para tenerla de referencia visual clara mientras llenas los datos.</p>
             
-            <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarFoto(event)">
+            <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="mostrarVistaPrevia(event)">
             
-            <!-- Vista previa de la foto -->
+            <!-- Vista previa ampliable de la guía -->
             <div id="previewBox" class="mt-4 hidden">
-                <img id="imagenPrevia" class="max-h-40 mx-auto rounded-xl shadow-inner border border-pink-400 object-contain bg-black/20">
-                <p class="text-xs text-pink-100 mt-2 font-medium">✔️ Imagen cargada con éxito</p>
+                <img id="imagenPrevia" onclick="verImagenCompleta()" class="max-h-48 mx-auto rounded-xl shadow-lg border-2 border-white/40 object-contain bg-black/30 cursor-pointer" title="Toca para ampliar">
+                <p class="text-xs text-pink-100 mt-2 font-medium">✔️ Guía cargada (Toca la foto para ampliarla)</p>
             </div>
         </div>
 
-        <!-- Formulario de Datos -->
+        <!-- Formulario Rápido -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
-                <span>📝 Datos del Envío</span>
-                <span class="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">Rápido</span>
+                📝 <span>Datos del Envío</span>
+                <span class="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">Manual y Seguro</span>
             </h2>
 
             <div>
@@ -49,12 +49,12 @@
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre)</label>
-                <input type="text" id="nombreCliente" placeholder="Ej. Maria Faria" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
+                <input type="text" id="nombreCliente" placeholder="Ej. Adais Medina" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (con código 58)</label>
-                <input type="tel" id="telefonoCliente" placeholder="Ej. 584144609226" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
+                <input type="tel" id="telefonoCliente" placeholder="Ej. 584264525388" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
             </div>
         </div>
 
@@ -64,24 +64,37 @@
         </button>
     </div>
 
-    <!-- Script de Procesamiento Inteligente -->
+    <!-- Modal simple para ver la foto en grande si se necesita -->
+    <div id="modalImagen" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4" onclick="cerrarImagenCompleta()">
+        <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
+    </div>
+
+    <!-- Script Funcional -->
     <script>
-        function procesarFoto(event) {
+        let urlImagenActual = "";
+
+        function mostrarVistaPrevia(event) {
             const archivo = event.target.files[0];
-            if (!archivo) return;
-
-            // Mostrar la foto en miniatura en la pantalla
-            const lector = new FileReader();
-            lector.onload = function(e) {
-                const img = document.getElementById('imagenPrevia');
-                img.src = e.target.result;
-                document.getElementById('previewBox').classList.remove('hidden');
+            if (archivo) {
+                const lector = new FileReader();
+                lector.onload = function(e) {
+                    urlImagenActual = e.target.result;
+                    document.getElementById('imagenPrevia').src = urlImagenActual;
+                    document.getElementById('imagenModal').src = urlImagenActual;
+                    document.getElementById('previewBox').classList.remove('hidden');
+                }
+                lector.readAsDataURL(archivo);
             }
-            lector.readAsDataURL(archivo);
+        }
 
-            // Intentar detectar si el nombre del archivo o metadatos traen pistas, 
-            // y dar aviso visual de que está lista para completar.
-            alert("¡Foto cargada correctamente! Verifica el teléfono y el nombre del destinatario para enviar.");
+        function verImagenCompleta() {
+            if (urlImagenActual) {
+                document.getElementById('modalImagen').classList.remove('hidden');
+            }
+        }
+
+        function cerrarImagenCompleta() {
+            document.getElementById('modalImagen').classList.add('hidden');
         }
 
         function enviarWhatsApp() {
@@ -94,7 +107,7 @@
                 return;
             }
 
-            // Limpiar formato de teléfono por si escribieron el 0 inicial
+            // Limpieza de formato de teléfono
             if (telefono.startsWith('0')) {
                 telefono = telefono.substring(1);
             }
