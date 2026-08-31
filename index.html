@@ -51,11 +51,11 @@
                 </select>
             </div>
 
-            <!-- Selector rápido interactivo -->
+            <!-- Selector rápido interactivo con nombres limpios -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea DEST (se aislará el nombre):</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Si el nombre no es exacto, escoge otro aquí:</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
-                    <option value="">-- Selecciona el bloque DEST --</option>
+                    <option value="">-- Selecciona el destinatario correcto --</option>
                 </select>
             </div>
 
@@ -83,7 +83,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Selección de Empresa y Extracción de Destinatario -->
+    <!-- Script con Nombres Limpios en el Menú Desplegable -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -277,21 +277,26 @@
 
             if (nombreFinal) document.getElementById('nombreCliente').value = nombreFinal;
 
+            // Llenar selector rápido con nombres limpios y legibles
             const selectSugerencias = document.getElementById('listaSugerencias');
-            selectSugerencias.innerHTML = '<option value="">-- Selecciona el bloque DEST correcto --</option>';
+            selectSugerencias.innerHTML = '<option value="">-- Selecciona el destinatario correcto --</option>';
             
             bloques.forEach(b => {
-                let opt = document.createElement('option');
-                opt.value = b;
-                opt.textContent = b;
-                selectSugerencias.appendChild(opt);
+                let nombreLimpioOp = aislarNombre(b);
+                // Solo añadimos al menú si el nombre limpio tiene sentido (al menos 2 palabras o longitud razonable)
+                if (nombreLimpioOp && nombreLimpioOp.length > 3) {
+                    let opt = document.createElement('option');
+                    opt.value = nombreLimpioOp;
+                    opt.textContent = nombreLimpioOp;
+                    selectSugerencias.appendChild(opt);
+                }
             });
             document.getElementById('selectorRapidoContainer').classList.remove('hidden');
         }
 
         function seleccionarSugerencia(select) {
             if (select.value) {
-                document.getElementById('nombreCliente').value = aislarNombre(select.value);
+                document.getElementById('nombreCliente').value = select.value;
             }
         }
 
