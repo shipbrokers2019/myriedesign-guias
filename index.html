@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Detección Inteligente por Patrones -->
+    <!-- Script Definitivo con Búsqueda Inversa -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -140,53 +140,48 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. EXTRACCIÓN INTELIGENTE DE DESTINATARIO (SIN DEPENDER DE LÍNEAS FIJAS)
+            // 3. EXTRACCIÓN DE DESTINATARIO (ESTRATEGIA INVERSA DESDE LA DIRECCIÓN)
             let nombreEncontrado = "";
 
-            // Recorremos buscando líneas que tengan pinta de nombre (evitando palabras prohibidas de direcciones o sucursales)
-            const palabrasBasura = ['AV', 'CALLE', 'EDIF', 'PISO', 'LOCAL', 'ZONA', 'CENTRO', 'URB', 'FINAL', 'INTERCOMUNAL', 'CC', 'CCS', 'MRW', 'ZOOM', 'TEALCA', 'REMITENTE', 'DESTINATARIO'];
+            for (let i = 0; i < lineas.length; i++) {
+                let lUp = lineas[i].toUpperCase();
 
-            for (let linea of lineas) {
-                let limpia = linea.toUpperCase()
-                    .replace(/DESTINATARI[O0]|DEST\.?|NOMBRE|CLIENTE/gi, '')
-                    .replace(/[:\-_\/]+/g, ' ')
-                    .trim();
-
-                // Si la línea tiene un guión en medio (formato típico de nombre repetido o nombre - cédula)
-                if (linea.includes('-')) {
-                    let partes = linea.split('-');
-                    let posibleNombre = partes[0].replace(/DESTINATARI[O0]|DEST\.?/gi, '').trim();
-                    
-                    // Validamos que tenga al menos dos palabras y no sea una dirección
-                    let esBasura = palabrasBasura.some(palabra => posibleNombre.includes(palabra));
-                    if (posibleNombre.split(' ').length >= 2 && !esBasura && posibleNombre.length > 4) {
-                        nombreEncontrado = posibleNombre;
-                        break;
+                // Identificamos dónde comienza la dirección (ej: "FINAL", "AV", "CALLE") para retroceder y tomar el nombre
+                if (lUp.includes('FINAL ') || lUp.startsWith('AV ') || lUp.includes('URB ') || lUp.includes('CALLE ')) {
+                    // Si encontramos la dirección, la línea justo anterior suele ser el nombre del destinatario
+                    if (i > 0) {
+                        let posibleNombre = lineas[i - 1];
+                        // Verificamos que no sea la etiqueta de la empresa o basura
+                        if (!posibleNombre.includes('ZOOM') && !posibleNombre.includes('MRW') && !posibleNombre.includes('TEALCA') && posibleNombre.length > 3) {
+                            nombreEncontrado = posibleNombre;
+                            break;
+                        }
                     }
                 }
+            }
 
-                // Validación general para líneas que parecen nombres limpios
-                let esBasura = palabrasBasura.some(palabra => limpia.startsWith(palabra) || limpia.includes(' ' + palabra + ' '));
-                let palabrasLimpia = limpia.split(/\s+/);
-
-                if (!esBasura && palabrasLimpia.length >= 2 && palabrasLimpia.length <= 5 && limpia.length > 5) {
-                    // Verificamos que no sea pura numeración
-                    let soloNumeros = palabrasLimpia.every(p => /^\d+$/.test(p));
-                    if (!soloNumeros) {
-                        nombreEncontrado = limpia;
+            // Plan de respaldo si no detectó la dirección por palabras clave: buscar la línea que contenga guión repetido o formato de nombre largo
+            if (!nombreEncontrado) {
+                for (let linea of lineas) {
+                    if (linea.includes('-') && linea.length > 6 && !linea.toUpperCase().includes('REMITENTE')) {
+                        nombreEncontrado = linea;
                         break;
                     }
                 }
             }
 
-            // Limpieza final de duplicados simétricos (ej: "VERYGIONETT LOAIZA VERYGIONETT LOAIZA")
+            // Limpieza final de duplicados (ej: "VERYGIONETT LOAIZA - VERYGIONETT LOAIZA")
             if (nombreEncontrado) {
-                const palabras = nombreEncontrado.split(/\s+/);
-                if (palabras.length >= 4 && palabras.length % 2 === 0) {
-                    let mitad = palabras.length / 2;
-                    let p1 = palabras.slice(0, mitad).join(' ');
-                    let p2 = palabras.slice(mitad).join(' ');
-                    if (p1 === p2) nombreEncontrado = p1;
+                if (nombreEncontrado.includes('-')) {
+                    nombreEncontrado = nombreEncontrado.split('-')[0].trim();
+                } else {
+                    const palabras = nombreEncontrado.split(/\s+/);
+                    if (palabras.length >= 4 && palabras.length % 2 === 0) {
+                        let mitad = palabras.length / 2;
+                        let p1 = palabras.slice(0, mitad).join(' ');
+                        let p2 = palabras.slice(mitad).join(' ');
+                        if (p1 === p2) nombreEncontrado = p1;
+                    }
                 }
                 document.getElementById('nombreCliente').value = nombreEncontrado;
             }
