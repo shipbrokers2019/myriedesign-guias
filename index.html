@@ -19,7 +19,7 @@
         <!-- Selector de Foto y Referencia Visual -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube la foto para verla de referencia y descargarla al enviar.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube o toma la foto para tenerla de referencia visual.</p>
             
             <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="mostrarVistaPrevia(event)">
             
@@ -30,20 +30,20 @@
             </div>
         </div>
 
-        <!-- Formulario Ágil -->
+        <!-- Formulario Rápido -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
                 📝 <span>Datos del Envío</span>
-                <span class="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">Rápido y Seguro</span>
+                <span class="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-bold">Manual y Seguro</span>
             </h2>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Empresa / Courier</label>
                 <select id="empresa" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-medium">
-                    <option value="TEALCA">TEALCA</option>
                     <option value="MRW">MRW</option>
-                    <option value="ZOOM">ZOOM</option>
+                    <option value="TEALCA">TEALCA</option>
                     <option value="LAE">LAE</option>
+                    <option value="ZOOM">ZOOM</option>
                 </select>
             </div>
 
@@ -53,8 +53,8 @@
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (con código 58 o 0414...)</label>
-                <input type="tel" id="telefonoCliente" placeholder="Ej. 04144609228" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (con código 58)</label>
+                <input type="tel" id="telefonoCliente" placeholder="Ej. 4144609228" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
             </div>
         </div>
 
@@ -69,7 +69,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Funcional y Descarga de Guía -->
+    <!-- Script Base Ajustado -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -108,7 +108,7 @@
                 return;
             }
 
-            // Limpieza de formato de teléfono (soporta 0414... o 414...)
+            // Limpieza de formato de teléfono
             if (telefono.startsWith('0')) {
                 telefono = telefono.substring(1);
             }
@@ -116,7 +116,7 @@
                 telefono = '58' + telefono;
             }
 
-            // Descargar la foto de la guía automáticamente al celular al enviar
+            // Descarga automática de la guía al celular al enviar
             if (archivoSeleccionado) {
                 const enlaceDescarga = document.createElement('a');
                 enlaceDescarga.href = urlImagenActual;
@@ -126,7 +126,7 @@
                 document.body.removeChild(enlaceDescarga);
             }
 
-            // Mensaje estructurado con el espacio exacto pedido
+            // Mensaje con el espacio añadido después de "Gracias por su compra!"
             const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
 `Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
 `Gracias por su compra! 🙏\n\n` +
