@@ -83,7 +83,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Actualizado -->
+    <!-- Script Actualizado con Extracción Inteligente Post-NOMBRE -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -152,10 +152,11 @@
                 let l = lineas[i];
                 let lUp = l.toUpperCase();
 
-                if (/(DEST|PEST|CLIENTE|SR|SRA)/.test(lUp)) {
+                // Añadimos INATARIO y CEDULA para capturar bloques cortados de Tealca
+                if (/(DEST|PEST|INATARIO|CLIENTE|SR|SRA|CEDULA|NOMBRE)/.test(lUp)) {
                     if (bloqueActual) bloques.push(bloqueActual.trim());
                     bloqueActual = l;
-                } else if (/(DIR|DIRECCION|ORIGEN|BARCELONA|TIPO SOBRE|CP IP)/.test(lUp) || lUp.startsWith('04')) {
+                } else if (/(DIR|DIRECCION|ORIGEN|ENTREGA|TURMERO|BARCELONA|TIPO SOBRE|CP IP)/.test(lUp) || lUp.startsWith('04')) {
                     if (bloqueActual) {
                         bloques.push(bloqueActual.trim());
                         bloqueActual = "";
@@ -174,17 +175,26 @@
         function aislarNombre(textoBruto) {
             let limpio = textoBruto.toUpperCase();
 
+            // Si el bloque contiene la palabra NOMBRE, cortamos todo lo que está antes de ella
+            if (limpio.includes('NOMBRE')) {
+                let partesNombre = limpio.split('NOMBRE');
+                if (partesNombre.length > 1) {
+                    limpio = partesName = partesNombre[1];
+                }
+            }
+
             const palabrasNegras = [
                 'PEST:', 'PEST', 'DEST:', 'DESTINATARIO:', 'DESTINATARI0:', 'DEST', 
+                'INATARIO', 'CEDULA', 'C.I.', 'EFONO', 'TELEFONO',
                 'CLIENTE:', 'SR:', 'SRA:', 'SRTA:', 
                 'V-', 'E-', 'RIF:', 'CI:', 'C.I.:', 
-                'TLF:', 'TLF', 'TELF:', 'TELF', 'TEL:', 'TEL', 'TELEFONO:',
+                'TLF:', 'TLF', 'TELF:', 'TELF', 'TEL:', 'TEL', 
                 'AV ', 'CALLE ', 'EDIF ', 'PISO ', 'URB ', 'ZONA ', 'CENTRO ', 
                 'BS.', 'BS', 'PESO:', 'KG', 'SUC:', 'AGENCIA:',
-                'CARACAS', 'CCS', 'BARCELONA', 'PLC', 'VALENCIA', 'MARACAY', 'BARINAS', 'ZULIA'
+                'CARACAS', 'CCS', 'BARCELONA', 'PLC', 'VALENCIA', 'MARACAY', 'BARINAS', 'ZULIA', 'ENTREGA', 'CIUDAD', 'TURMERO'
             ];
 
-            let regexEtiquetas = new RegExp(palabrasNegras.join('|'), 'gi');
+            let regexEtiquetas = new RegExp('\\b(' + palabrasNegras.join('|') + ')\\b', 'gi');
             limpio = limpio.replace(regexEtiquetas, ' ');
 
             limpio = limpio.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, ' ');
@@ -206,7 +216,7 @@
 
             for (let b of bloques) {
                 let bUp = b.toUpperCase();
-                if (bUp.includes('DEST') || bUp.includes('PEST') || bUp.includes('TLF')) {
+                if (bUp.includes('DEST') || bUp.includes('PEST') || bUp.includes('INATARIO') || bUp.includes('TLF') || bUp.includes('EFONO')) {
                     const matchCel = b.match(/0?((?:414|424|412|416|426)\d{7})/);
                     if (matchCel && matchCel[1]) {
                         telefonoEncontrado = matchCel[1];
@@ -216,7 +226,7 @@
             }
 
             if (!telefonoEncontrado) {
-                const regexTlfEtiqueta = /(?:TLF|TELF|TEL|TELEFONO)[:.\s]*0?((?:414|424|412|416|426)\d{7})/i;
+                const regexTlfEtiqueta = /(?:TLF|TELF|TEL|TELEFONO|EFONO)[:.\s]*0?((?:414|424|412|416|426)\d{7})/i;
                 let matchEtiqueta = textoCompleto.match(regexTlfEtiqueta);
                 if (matchEtiqueta && matchEtiqueta[1]) {
                     telefonoEncontrado = matchEtiqueta[1];
@@ -254,23 +264,27 @@
                 document.getElementById('telefonoCliente').value = telefonoLimpio;
             }
 
+            // Búsqueda directa en los bloques que contengan la palabra NOMBRE
             let nombreFinal = "";
             for (let b of bloques) {
-                if (b.toUpperCase().includes('DEST') || b.toUpperCase().includes('PEST')) {
+                if (b.toUpperCase().includes('NOMBRE')) {
                     let posible = aislarNombre(b);
-                    if (posible && posible.split(' ').length >= 2) {
+                    if (posible && posible.split(' ').length >= 1) {
                         nombreFinal = posible;
                         break;
                     }
                 }
             }
 
+            // Si no, buscar en los demás bloques de destino
             if (!nombreFinal) {
                 for (let b of bloques) {
-                    let posible = aislarNombre(b);
-                    if (posible && posible.split(' ').length >= 2 && !posible.includes('DIR')) {
-                        nombreFinal = posible;
-                        break;
+                    if (b.toUpperCase().includes('DEST') || b.toUpperCase().includes('PEST') || b.toUpperCase().includes('INATARIO')) {
+                        let posible = aislarNombre(b);
+                        if (posible && posible.split(' ').length >= 1) {
+                            nombreFinal = posible;
+                            break;
+                        }
                     }
                 }
             }
@@ -282,7 +296,7 @@
             
             bloques.forEach(b => {
                 let nombreLimpioOp = aislarNombre(b);
-                if (nombreLimpioOp && nombreLimpioOp.length > 3) {
+                if (nombreLimpioOp && nombreLimpioOp.length > 2) {
                     let opt = document.createElement('option');
                     opt.value = nombreLimpioOp;
                     opt.textContent = nombreLimpioOp;
