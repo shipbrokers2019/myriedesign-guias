@@ -17,13 +17,13 @@
         <!-- Header -->
         <header class="text-center my-6">
             <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
-            <p class="text-sm text-slate-500">Lector Inteligente de Guías</p>
+            <p class="text-sm text-slate-500">Destinatario y Teléfono</p>
         </header>
 
         <!-- Selector de Foto y Escáner -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube la foto y la IA rellenará los campos automáticamente.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube la foto para extraer los datos de entrega.</p>
             
             <input type="file" id="fotoGuia" accept="image/*,.heic,.HEIC" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="procesarGuiaInteligente(event)">
             
@@ -34,41 +34,31 @@
             </div>
         </div>
 
-        <!-- Formulario Automatizado -->
+        <!-- Formulario Enfocado en Destinatario -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
-                📝 <span>Datos Detectados</span>
+                🎯 <span>Datos de Destino</span>
                 <span class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Auto-relleno IA</span>
             </h2>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Empresa / Courier</label>
-                <select id="empresa" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-medium">
-                    <option value="MRW">MRW</option>
-                    <option value="TEALCA">TEALCA</option>
-                    <option value="ZOOM">ZOOM</option>
-                    <option value="LAE">LAE</option>
-                </select>
-            </div>
+            <input type="hidden" id="empresa" value="MRW">
 
-            <!-- Selector rápido interactivo -->
+            <!-- Selector rápido interactivo por si la IA necesita ayuda -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea DEST (se aislará el nombre):</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Si el nombre no es exacto, toca la línea correcta aquí:</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
                     <option value="">-- Selecciona el bloque DEST --</option>
                 </select>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Aislado y Limpio)</label>
-                <input type="text" id="nombreCliente" placeholder="Nombre del cliente..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
-                <p class="text-[11px] text-slate-400 mt-1">Limpio de etiquetas DEST, cédulas y teléfonos.</p>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre Limpio)</label>
+                <input type="text" id="nombreCliente" placeholder="Nombre de quien recibe..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (Destinatario)</label>
-                <input type="tel" id="telefonoCliente" placeholder="Número detectado..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono font-bold text-slate-800">
-                <p class="text-[11px] text-slate-400 mt-1">Extraído de la sección de destino.</p>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono del Destinatario</label>
+                <input type="tel" id="telefonoCliente" placeholder="Teléfono de quien recibe..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono font-bold text-slate-800">
             </div>
         </div>
 
@@ -83,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Extracción de Teléfono enfocada en Destinatario -->
+    <!-- Script de Extracción Exclusiva para Destinatario -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -134,10 +124,10 @@
                     const bloques = agruparEnBloquesDest(lineas);
                     
                     extraerDatosConPrecision(bloques, texto);
-                    estado.innerText = "✅ ¡Datos procesados con éxito!";
+                    estado.innerText = "✅ ¡Destinatario y teléfono listos!";
                 } catch (error) {
                     console.error(error);
-                    estado.innerText = "⚠️ Lectura manual lista.";
+                    estado.innerText = "⚠️ Relleno manual disponible.";
                     document.getElementById('selectorRapidoContainer').classList.remove('hidden');
                 }
             };
@@ -201,11 +191,10 @@
             return limpio;
         }
 
-        // Extractor de teléfono enfocado en la sección de Destino / PEST / DEST
         function extraerTelefonoDestinatario(textoCompleto, bloques) {
             let telefonoEncontrado = "";
 
-            // 1. Buscar primero dentro del bloque que contenga 'DEST' o 'PEST' (donde está el cliente que recibe)
+            // 1. Buscar dentro del bloque DEST o PEST
             for (let b of bloques) {
                 let bUp = b.toUpperCase();
                 if (bUp.includes('DEST') || bUp.includes('PEST') || bUp.includes('TLF')) {
@@ -217,7 +206,7 @@
                 }
             }
 
-            // 2. Si no aparece en el bloque DEST, buscar cualquier teléfono que esté acompañado de la etiqueta TLF en todo el texto
+            // 2. Buscar por etiqueta TLF si no apareció arriba
             if (!telefonoEncontrado) {
                 const regexTlfEtiqueta = /(?:TLF|TELF|TEL|TELEFONO)[:.\s]*0?((?:414|424|412|416|426)\d{7})/i;
                 let matchEtiqueta = textoCompleto.match(regexTlfEtiqueta);
@@ -226,11 +215,10 @@
                 }
             }
 
-            // 3. Como último recurso, si hay varios números, intentamos evitar el de arriba (origen) y tomamos el que aparezca más abajo
+            // 3. Tomar el último número móvil detectado en la guía (suele ser el destinatario al fondo)
             if (!telefonoEncontrado) {
                 const matchesTodos = [...textoCompleto.matchAll(/\b0?((?:414|424|412|416|426)\d{7})\b/g)];
                 if (matchesTodos.length > 0) {
-                    // Si hay más de uno, por lo general el último o el segundo suele ser el del destinatario en MRW
                     let ultimoMatch = matchesTodos[matchesTodos.length - 1];
                     if (ultimoMatch && ultimoMatch[1]) {
                         telefonoEncontrado = ultimoMatch[1];
@@ -248,20 +236,20 @@
         function extraerDatosConPrecision(bloques, textoCompleto) {
             const textoMayus = textoCompleto.toUpperCase();
 
-            // Empresa por defecto: MRW
+            // Detectar empresa para el mensaje de WhatsApp interno
             let empresaDetectada = 'MRW';
             if (textoMayus.includes('TEALCA')) empresaDetectada = 'TEALCA';
             else if (textoMayus.includes('ZOOM')) empresaDetectada = 'ZOOM';
             else if (textoMayus.includes('LAE')) empresaDetectada = 'LAE';
             document.getElementById('empresa').value = empresaDetectada;
 
-            // Extraer el teléfono específico del destinatario
+            // Teléfono del Destinatario
             let telefonoLimpio = extraerTelefonoDestinatario(textoCompleto, bloques);
             if (telefonoLimpio) {
                 document.getElementById('telefonoCliente').value = telefonoLimpio;
             }
 
-            // Búsqueda del nombre en el bloque DEST
+            // Nombre del Destinatario
             let nombreFinal = "";
             for (let b of bloques) {
                 if (b.toUpperCase().includes('DEST') || b.toUpperCase().includes('PEST')) {
@@ -285,7 +273,7 @@
 
             if (nombreFinal) document.getElementById('nombreCliente').value = nombreFinal;
 
-            // Llenar selector rápido
+            // Llenar selector rápido de respaldo
             const selectSugerencias = document.getElementById('listaSugerencias');
             selectSugerencias.innerHTML = '<option value="">-- Selecciona el bloque DEST correcto --</option>';
             
