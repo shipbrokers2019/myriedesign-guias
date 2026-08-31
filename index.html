@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Despacho Rápido - Myriedesign</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-p-4 pb-12">
+
+    <div class="max-w-md mx-auto p-4">
+        <header class="text-center my-6">
+            <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
+            <p class="text-sm text-slate-500">Generador de Envíos y WhatsApp</p>
+        </header>
+
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6">
+            <h2 class="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                📷 1. Escanear Guía del Courier
+            </h2>
+            <div id="reader" class="w-full rounded-lg overflow-hidden mb-3"></div>
+            <button id="btn-iniciar" onclick="iniciarEscaneo()" class="w-full bg-slate-900 text-white py-2.5 rounded-xl font-medium hover:bg-slate-800 transition">
+                Activar Cámara para Escanear
+            </button>
+            <button id="btn-detener" onclick="detenerEscaneo()" class="w-full bg-red-100 text-red-600 py-2 rounded-xl font-medium mt-2 hidden hover:bg-red-200 transition">
+                Apagar Cámara
+            </button>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
+            <h2 class="font-semibold text-slate-700 flex items-center gap-2">
+                📝 2. Datos del Destinatario y Envío
+            </h2>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Empresa / Courier</label>
+                <input type="text" id="empresa" placeholder="Ej. LAE, MRW, Zoom, Tealca..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Número de Tracking / Guía</label>
+                <input type="text" id="tracking" placeholder="Se llena al escanear o digitar" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:border-pink-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Nombre del Destinatario</label>
+                <input type="text" id="nombreCliente" placeholder="Ej. Ingrid" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (con código de país)</label>
+                <input type="tel" id="telefonoCliente" placeholder="Ej. 584121234567" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destino (Ciudad)</label>
+                <input type="text" id="destino" placeholder="Ej. PUERTO LA CRUZ" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm uppercase focus:outline-none focus:border-pink-500">
+            </div>
+        </div>
+
+        <button onclick="enviarWhatsApp()" class="w-full bg-emerald-600 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition flex items-center justify-center gap-2">
+            💬 Enviar Notificación por WhatsApp
+        </button>
+    </div>
+
+    <script>
+        let html5QrCode;
+
+        function iniciarEscaneo() {
+            const btnIniciar = document.getElementById('btn-iniciar');
+            const btnDetener = document.getElementById('btn-detener');
+            
+            btnIniciar.classList.add('hidden');
+            btnDetener.classList.remove('hidden');
+
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                (decodedText) => {
+                    document.getElementById('tracking').value = decodedText;
+                    detectarCourierAutomatico(decodedText);
+                    detenerEscaneo();
+                    alert("¡Guía escaneada con éxito!");
+                },
+                (errorMessage) => {}
+            ).catch(err => {
+                console.error("No se pudo iniciar la cámara", err);
+                alert("Error al acceder a la cámara. Revisa los permisos.");
+                detenerEscaneo();
+            });
+        }
+
+        function detenerEscaneo() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('btn-iniciar').classList.remove('hidden');
+                    document.getElementById('btn-detener').classList.add('hidden');
+                }).catch(err => console.error("Error al detener", err));
+            } else {
+                document.getElementById('btn-iniciar').classList.remove('hidden');
+                document.getElementById('btn-detener').classList.add('hidden');
+            }
+        }
+
+        function detectarCourierAutomatico(codigo) {
+            const inputEmpresa = document.getElementById('empresa');
+            if (codigo.startsWith("23") || codigo.length >= 14) {
+                inputEmpresa.value = "LAE";
+            } else if (codigo.toUpperCase().startsWith("MRW")) {
+                inputEmpresa.value = "MRW";
+            } else {
+                inputEmpresa.value = "Courier";
+            }
+        }
+
+        function enviarWhatsApp() {
+            const empresa = document.getElementById('empresa').value || "LAE";
+            const tracking = document.getElementById('tracking').value;
+            const nombre = document.getElementById('nombreCliente').value || "Cliente";
+            const telefono = document.getElementById('telefonoCliente').value;
+            const destino = document.getElementById('destino').value.toUpperCase() || "DESTINO";
+
+            if (!tracking || !telefono) {
+                alert("Por favor asegúrate de escanear/llenar el tracking y colocar el teléfono del cliente.");
+                return;
+            }
+
+            const hoy = new Date();
+            const fechaEnvio = String(hoy.getDate()).padStart(2, '0') + '/' + 
+                               String(hoy.getMonth() + 1).padStart(2, '0') + '/' + 
+                               hoy.getFullYear();
+
+            const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
+`Su pedido ya fue enviado. Aquí el resumen:\n\n` +
+`📦 Empresa: ${empresa}\n` +
+`🔢 Tracking: ${tracking}\n` +
+`🏠 Destino: ${destino}\n` +
+`📅 Fecha de envío: ${fechaEnvio}\n\n` +
+`Adjunto la foto de su guía para que pueda rastrear su pedido cuando quiera.\n\n` +
+`Gracias por su compra! 🙏\n` +
+`Recuerde que es importante darle los cuidados adecuados:\n` +
+`❤️Mantener limpias y secas.\n` +
+`❤️Alejar de agentes químicos como alcohol, perfumes, cremas y jabones.\n` +
+`❤️Colocar cuando la piel esté seca\n` +
+`❤️No mojar ni usar en playa o piscinas\n` +
+`❤️Evitar hacer ejercicios con ellas\n\n` +
+`De esta manera extenderá la vida útil y brillo de sus piezas ✨ ✨\n\n` +
+`Saludos Myriedesign`;
+
+            const urlWhatsApp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
+            window.open(urlWhatsApp, '_blank');
+        }
+    </script>
+</body>
+</html>
