@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con lógica intacta de teléfonos y búsqueda precisa de destinatario -->
+    <!-- Script con Lógica de Teléfonos Protegida e IA de Nombres Optimizada para MRW/Zoom -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -117,7 +117,7 @@
             else if (textoMayus.includes('ZOOM')) document.getElementById('empresa').value = 'ZOOM';
             else if (textoMayus.includes('LAE')) document.getElementById('empresa').value = 'LAE';
 
-            // 2. LÓGICA DE TELÉFONOS (Intacta y funcional)
+            // 2. LÓGICA DE TELÉFONOS (PROTEGIDA Y 100% INTACTA)
             let telefonoEncontrado = "";
             const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
             const matchesCel = texto.match(regexCelular);
@@ -137,17 +137,15 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. NUEVA LÓGICA DE DESTINATARIO (Más precisa para MRW, Zoom y Tealca)
+            // 3. LÓGICA DE DESTINATARIO MEJORADA PARA MRW, ZOOM Y TEALCA
             let nombreEncontrado = "";
 
-            // Buscamos patrones específicos donde los couriers imprimen el nombre
             for (let i = 0; i < lineas.length; i++) {
                 let lineaOriginal = lineas[i];
                 let lUp = lineaOriginal.toUpperCase();
 
-                // Caso A: Etiquetas explícitas de destinatario
+                // A. Búsqueda por etiquetas explícitas (Tealca / LAE)
                 if (lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE') || lUp.startsWith('NOMBRE')) {
-                    // Si el nombre viene en la misma línea después de dos puntos o guión
                     let partes = lineaOriginal.split(/[:\-]/);
                     if (partes.length > 1 && partes[1].trim().length > 3) {
                         let posible = partes[1].replace(/V-|E-|C\.I\./gi, '').trim();
@@ -156,7 +154,6 @@
                             break;
                         }
                     }
-                    // Si está en la línea siguiente
                     if (!nombreEncontrado && i + 1 < lineas.length) {
                         let siguienteLinea = lineas[i + 1].replace(/V-|E-|C\.I\./gi, '').trim();
                         if (siguienteLinea.length > 3 && !/\d{5,}/.test(siguienteLinea)) {
@@ -166,31 +163,33 @@
                     }
                 }
 
-                // Caso B: Formato MRW / Zoom (ej: "INGRID CAMPOS V-9142718")
-                if (lUp.includes('V-') || lUp.includes('E-')) {
-                    // Limpiamos la cédula y nos quedamos con el nombre al lado
-                    let limpioCedula = lineaOriginal.replace(/[V|E][-]?\d{6,8}/g, '').trim();
-                    limpiocedula = limpioCedula.replace(/[:\-]/g, '').trim();
-                    if (limpiocedula.length > 4 && /^[A-ZÁÉÍÓÚÑ\s]+$/.test(limpiocedula.toUpperCase())) {
-                        nombreEncontrado = limpiocedula;
+                // B. Búsqueda para MRW y Zoom (donde el nombre está junto a la cédula, ej: "INGRID CAMPOS V-9142718")
+                if (lUp.includes('V-') || lUp.includes('E-') || lUp.includes('V9') || lUp.includes('V8') || lUp.includes('V4')) {
+                    // Limpiamos los patrones de cédula de venezolano
+                    let limpio = lineaOriginal.replace(/[V|E][-]?\d{6,8}/gi, '').trim();
+                    limpio = limpio.replace(/[:\-]/g, '').trim();
+                    
+                    // Si quedan palabras en letras puras de tamaño razonable, es el nombre
+                    if (limpio.length >= 4 && /^[A-ZÁÉÍÓÚÑ\s]+$/.test(limpio.toUpperCase())) {
+                        nombreEncontrado = limpio;
                         break;
-                    } else if (i > 0 && !lineas[i-1].toUpperCase().includes('ORIGEN') && lineas[i-1].length > 4) {
-                        // A veces el nombre está justo en la línea anterior a la cédula
-                        let posibleNombre = lineas[i-1].replace(/DESTINATARIO|NOMBRE/gi, '').trim();
-                        if (/^[A-ZÁÉÍÓÚÑ\s]+$/.test(posibleNombre.toUpperCase()) && posibleNombre.length > 3) {
-                            nombreEncontrado = posibleNombre;
+                    } else if (i > 0) {
+                        // A veces la cédula está en una línea y el nombre justo en la de arriba
+                        let arriba = lineas[i-1].replace(/DESTINATARIO|NOMBRE|REMITE|ORIGEN/gi, '').trim();
+                        if (arriba.length >= 4 && /^[A-ZÁÉÍÓÚÑ\s]+$/.test(arriba.toUpperCase())) {
+                            nombreEncontrado = arriba;
                             break;
                         }
                     }
                 }
             }
 
-            // Paso de respaldo si no capturó con los casos anteriores: buscar texto en mayúsculas limpio que no sea código de barra ni ciudad
-            if (!nombreEncontrado) {
-                const ignorar = ['TRACKING', 'TEALCA', 'MRW', 'ZOOM', 'DOMESA', 'LAE', 'CIUDAD', 'DIRECCION', 'REMITE', 'VALOR', 'ORIGEN', 'DESTINO', 'OFICINA', 'SOBRE', 'PESO', 'COBRAR', 'ENVIADO', 'ENTREGA', 'TURMERO', 'BARCELONA'];
+            // C. Respaldo general filtrando palabras prohibidas de courier y etiquetas falsas como "BISUTERIA"
+            if (!nombreEncontrado || nombreEncontrado.toUpperCase() === 'BISUTERIA') {
+                const ignorar = ['TRACKING', 'BISUTERIA', 'TEALCA', 'MRW', 'ZOOM', 'DOMESA', 'LAE', 'CIUDAD', 'DIRECCION', 'REMITE', 'VALOR', 'ORIGEN', 'DESTINO', 'OFICINA', 'SOBRE', 'PESO', 'COBRAR', 'ENVIADO', 'ENTREGA', 'TURMERO', 'BARCELONA', 'CCS', 'MER'];
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
-                    let esIgnorada = ignorar.some( palabra => lUp.includes(palabra) );
+                    let esIgnorada = ignorar.some(palabra => lUp.includes(palabra));
                     if (linea.length >= 5 && linea.length <= 35 && /^[A-ZÁÉÍÓÚÑ\s]+$/.test(linea) && !esIgnorada && !/\d/.test(linea)) {
                         nombreEncontrado = linea;
                         break;
@@ -199,7 +198,6 @@
             }
 
             if (nombreEncontrado) {
-                // Limpieza final de palabras basura que hayan quedado pegadas
                 nombreEncontrado = nombreEncontrado.replace(/NOMBRE|DESTINATARIO|CLIENTE|V-|E-|ENTREGA/gi, '').trim();
                 document.getElementById('nombreCliente').value = nombreEncontrado;
             }
