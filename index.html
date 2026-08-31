@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Lógica de Teléfonos Protegida e IA de Nombres Optimizada para MRW/Zoom -->
+    <!-- Script con Lógica de Teléfonos Protegida y Extracción de Línea Completa -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -137,60 +137,31 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. LÓGICA DE DESTINATARIO MEJORADA PARA MRW, ZOOM Y TEALCA
+            // 3. LÓGICA DE DESTINATARIO (TRAE LA LÍNEA COMPLETA DONDE APARECE LA CÉDULA O EL DATOS CLAVE)
             let nombreEncontrado = "";
 
             for (let i = 0; i < lineas.length; i++) {
                 let lineaOriginal = lineas[i];
                 let lUp = lineaOriginal.toUpperCase();
 
-                // A. Búsqueda por etiquetas explícitas (Tealca / LAE)
-                if (lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE') || lUp.startsWith('NOMBRE')) {
-                    let partes = lineaOriginal.split(/[:\-]/);
-                    if (partes.length > 1 && partes[1].trim().length > 3) {
-                        let posible = partes[1].replace(/V-|E-|C\.I\./gi, '').trim();
-                        if (!/\d{5,}/.test(posible)) {
-                            nombreEncontrado = posible;
-                            break;
-                        }
-                    }
-                    if (!nombreEncontrado && i + 1 < lineas.length) {
-                        let siguienteLinea = lineas[i + 1].replace(/V-|E-|C\.I\./gi, '').trim();
-                        if (siguienteLinea.length > 3 && !/\d{5,}/.test(siguienteLinea)) {
-                            nombreEncontrado = siguienteLinea;
-                            break;
-                        }
-                    }
-                }
-
-                // B. Búsqueda para MRW y Zoom (donde el nombre está junto a la cédula, ej: "INGRID CAMPOS V-9142718")
-                if (lUp.includes('V-') || lUp.includes('E-') || lUp.includes('V9') || lUp.includes('V8') || lUp.includes('V4')) {
-                    // Limpiamos los patrones de cédula de venezolano
-                    let limpio = lineaOriginal.replace(/[V|E][-]?\d{6,8}/gi, '').trim();
-                    limpio = limpio.replace(/[:\-]/g, '').trim();
-                    
-                    // Si quedan palabras en letras puras de tamaño razonable, es el nombre
-                    if (limpio.length >= 4 && /^[A-ZÁÉÍÓÚÑ\s]+$/.test(limpio.toUpperCase())) {
-                        nombreEncontrado = limpio;
+                // Si la línea contiene una cédula (V- o E-) o la palabra clave DESTINATARIO / NOMBRE, nos traemos la línea completa
+                if (/[V|E][-]?\d{6,8}/.test(lUp) || lUp.includes('DESTINATARIO') || lUp.includes('NOMBRE')) {
+                    // Limpiamos únicamente prefijos molestos si sobran al inicio, pero dejamos toda la línea estructural
+                    let lineaCompleta = lineaOriginal.replace(/DESTINATARIO|NOMBRE|CLIENTE|C\.I\./gi, '').trim();
+                    if (lineaCompleta.length > 3 && lineaCompleta.toUpperCase() !== 'BISUTERIA') {
+                        nombreEncontrado = lineaCompleta;
                         break;
-                    } else if (i > 0) {
-                        // A veces la cédula está en una línea y el nombre justo en la de arriba
-                        let arriba = lineas[i-1].replace(/DESTINATARIO|NOMBRE|REMITE|ORIGEN/gi, '').trim();
-                        if (arriba.length >= 4 && /^[A-ZÁÉÍÓÚÑ\s]+$/.test(arriba.toUpperCase())) {
-                            nombreEncontrado = arriba;
-                            break;
-                        }
                     }
                 }
             }
 
-            // C. Respaldo general filtrando palabras prohibidas de courier y etiquetas falsas como "BISUTERIA"
-            if (!nombreEncontrado || nombreEncontrado.toUpperCase() === 'BISUTERIA') {
-                const ignorar = ['TRACKING', 'BISUTERIA', 'TEALCA', 'MRW', 'ZOOM', 'DOMESA', 'LAE', 'CIUDAD', 'DIRECCION', 'REMITE', 'VALOR', 'ORIGEN', 'DESTINO', 'OFICINA', 'SOBRE', 'PESO', 'COBRAR', 'ENVIADO', 'ENTREGA', 'TURMERO', 'BARCELONA', 'CCS', 'MER'];
+            // Respaldo secundario si la línea con cédula no se detectó perfectamente
+            if (!nombreEncontrado || nombreEncontrado.toUpperCase() === 'BISUTERIA' || nombreEncontrado.toUpperCase() === 'TRACKING') {
+                const ignorar = ['TRACKING', 'BISUTERIA', 'TEALCA', 'MRW', 'ZOOM', 'DOMESA', 'LAE', 'CIUDAD', 'DIRECCION', 'REMITE', 'VALOR', 'ORIGEN', 'DESTINO', 'OFICINA', 'SOBRE', 'PESO', 'COBRAR', 'ENVIADO', 'ENTREGA'];
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
                     let esIgnorada = ignorar.some(palabra => lUp.includes(palabra));
-                    if (linea.length >= 5 && linea.length <= 35 && /^[A-ZÁÉÍÓÚÑ\s]+$/.test(linea) && !esIgnorada && !/\d/.test(linea)) {
+                    if (linea.length >= 5 && linea.length <= 40 && /^[A-ZÁÉÍÓÚÑ\s\-\.]+$/.test(linea) && !esIgnorada && !/\d{5,}/.test(linea)) {
                         nombreEncontrado = linea;
                         break;
                     }
@@ -198,7 +169,6 @@
             }
 
             if (nombreEncontrado) {
-                nombreEncontrado = nombreEncontrado.replace(/NOMBRE|DESTINATARIO|CLIENTE|V-|E-|ENTREGA/gi, '').trim();
                 document.getElementById('nombreCliente').value = nombreEncontrado;
             }
         }
