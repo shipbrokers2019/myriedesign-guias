@@ -19,14 +19,14 @@
         <!-- Selector de Foto y Referencia Visual -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
             <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
-            <p class="text-xs text-pink-100 mb-4">Sube o toma la foto para tenerla de referencia visual clara mientras llenas los datos.</p>
+            <p class="text-xs text-pink-100 mb-4">Sube o toma la foto para tenerla de referencia y copiarla al portapapeles.</p>
             
             <input type="file" id="fotoGuia" accept="image/*" class="w-full text-sm text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-pink-600 hover:file:bg-pink-50 cursor-pointer" onchange="mostrarVistaPrevia(event)">
             
             <!-- Vista previa ampliable de la guía -->
             <div id="previewBox" class="mt-4 hidden">
                 <img id="imagenPrevia" onclick="verImagenCompleta()" class="max-h-48 mx-auto rounded-xl shadow-lg border-2 border-white/40 object-contain bg-black/30 cursor-pointer" title="Toca para ampliar">
-                <p class="text-xs text-pink-100 mt-2 font-medium">✔️ Guía cargada (Toca la foto para ampliarla)</p>
+                <p class="text-xs text-pink-100 mt-2 font-medium">✔️ Guía lista (Se copiará al enviar)</p>
             </div>
         </div>
 
@@ -40,21 +40,21 @@
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Empresa / Courier</label>
                 <select id="empresa" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-medium">
+                    <option value="MRW">MRW</option>
                     <option value="TEALCA">TEALCA</option>
                     <option value="LAE">LAE</option>
                     <option value="ZOOM">ZOOM</option>
-                    <option value="MRW">MRW</option>
                 </select>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario (Nombre)</label>
-                <input type="text" id="nombreCliente" placeholder="Ej. Adais Medina" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
+                <input type="text" id="nombreCliente" placeholder="Ej. Victor" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono (con código 58)</label>
-                <input type="tel" id="telefonoCliente" placeholder="Ej. 584264525388" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
+                <input type="tel" id="telefonoCliente" placeholder="Ej. 4143939905" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono">
             </div>
         </div>
 
@@ -69,13 +69,14 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Funcional -->
+    <!-- Script Funcional con Copiado de Imagen -->
     <script>
+        let archivoSeleccionado = null;
         let urlImagenActual = "";
 
         function mostrarVistaPrevia(event) {
-            const archivo = event.target.files[0];
-            if (archivo) {
+            archivoSeleccionado = event.target.files[0];
+            if (archivoSeleccionado) {
                 const lector = new FileReader();
                 lector.onload = function(e) {
                     urlImagenActual = e.target.result;
@@ -83,7 +84,7 @@
                     document.getElementById('imagenModal').src = urlImagenActual;
                     document.getElementById('previewBox').classList.remove('hidden');
                 }
-                lector.readAsDataURL(archivo);
+                lector.readAsDataURL(archivoSeleccionado);
             }
         }
 
@@ -97,7 +98,7 @@
             document.getElementById('modalImagen').classList.add('hidden');
         }
 
-        function enviarWhatsApp() {
+        async function enviarWhatsApp() {
             const empresa = document.getElementById('empresa').value;
             const nombre = document.getElementById('nombreCliente').value.trim() || "Cliente";
             let telefono = document.getElementById('telefonoCliente').value.trim();
@@ -115,9 +116,21 @@
                 telefono = '58' + telefono;
             }
 
+            // Intentar copiar la imagen al portapapeles para pegarla fácilmente en WhatsApp
+            if (archivoSeleccionado && navigator.clipboard && window.ClipboardItem) {
+                try {
+                    const item = new ClipboardItem({ [archivoSeleccionado.type]: archivoSeleccionado });
+                    await navigator.clipboard.write([item]);
+                    alert("📋 ¡Foto de la guía copiada al portapapeles!\n\nEn WhatsApp, mantén presionado el chat y dale a 'Pegar' para enviarla junto con el mensaje.");
+                } catch (e) {
+                    console.log("No se pudo copiar la imagen automáticamente al portapapeles:", e);
+                }
+            }
+
+            // Mensaje con el espacio añadido después de "Gracias por su compra!"
             const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
 `Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
-`Gracias por su compra! 🙏\n` +
+`Gracias por su compra! 🙏\n\n` +
 `Recuerde que es importante darle los cuidados adecuados a sus piezas:\n` +
 `❤️ Mantener limpias y secas.\n` +
 `❤️ Alejar de químicos (alcohol, perfumes, cremas, jabones).\n` +
