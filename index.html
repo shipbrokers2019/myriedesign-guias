@@ -16,19 +16,24 @@
             <p class="text-sm text-slate-500">Gestor Rápido de Envíos</p>
         </header>
 
-        <!-- Bloque de Pegado Inteligente -->
+        <!-- Captura de Guía -->
         <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-5 rounded-2xl shadow-md text-white mb-6 text-center">
-            <h2 class="font-bold text-lg mb-1">⚡ Autocompletar Rápido</h2>
-            <p class="text-xs text-pink-100 mb-4">Copia los datos de la guía (o usa Google Lens en tu foto) y pégalos aquí abajo de un solo toque.</p>
+            <h2 class="font-bold text-lg mb-1">📸 Foto de la Guía</h2>
+            <p class="text-xs text-pink-100 mb-4">Toma la foto para tenerla de referencia visual mientras llenas los datos.</p>
             
-            <button onclick="pegarDesdePortapapeles()" class="w-full bg-white text-pink-600 py-3.5 rounded-xl font-bold shadow-sm hover:bg-pink-50 transition flex items-center justify-center gap-2">
-                📋 Pegar Datos de la Guía
+            <input type="file" id="fotoGuia" accept="image/*" capture="environment" class="hidden" onchange="mostrarVistaPrevia(event)">
+            
+            <button onclick="document.getElementById('fotoGuia').click()" class="w-full bg-white text-pink-600 py-3.5 rounded-xl font-bold shadow-sm hover:bg-pink-50 transition flex items-center justify-center gap-2">
+                📷 Tomar / Adjuntar Foto
             </button>
+            <div id="previewContainer" class="mt-3 hidden">
+                <p id="nombreArchivo" class="text-xs text-pink-100 truncate"></p>
+            </div>
         </div>
 
         <!-- Formulario Simplificado -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
-            <h2 class="font-semibold text-slate-700 flex items-center justify-between">
+            <h2 class="font-semibold text-slate-700">
                 📝 <span>Datos del Envío</span>
             </h2>
 
@@ -59,54 +64,34 @@
         </button>
     </div>
 
-    <!-- Script de Autocompletado -->
+    <!-- Script Directo -->
     <script>
-        async function pegarDesdePortapapeles() {
-            try {
-                // Intenta leer el portapapeles automáticamente
-                const texto = await navigator.clipboard.readText();
-                interpretarTexto(texto);
-            } catch (err) {
-                // Si el navegador pide permisos estrictos, abre un cuadro para pegar manual de un toque
-                let textoManual = prompt("Pega aquí el texto copiado de la guía (nombre, teléfono, etc.):");
-                if (textoManual) {
-                    interpretarTexto(textoManual);
-                }
+        function mostrarVistaPrevia(event) {
+            const archivo = event.target.files[0];
+            if (archivo) {
+                const contenedor = document.getElementById('previewContainer');
+                const textoNombre = document.getElementById('nombreArchivo');
+                textoNombre.textContent = "✔️ Foto cargada: " + archivo.name;
+                contenedor.classList.remove('hidden');
             }
-        }
-
-        function interpretarTexto(texto) {
-            const textoMayus = texto.toUpperCase();
-
-            // 1. Detectar Empresa
-            const selectEmpresa = document.getElementById('empresa');
-            if (textoMayus.includes("TEALCA")) selectEmpresa.value = "TEALCA";
-            else if (textoMayus.includes("LAE")) selectEmpresa.value = "LAE";
-            else if (textoMayus.includes("ZOOM")) selectEmpresa.value = "ZOOM";
-            else if (textoMayus.includes("MRW")) selectEmpresa.value = "MRW";
-
-            // 2. Buscar Teléfono (formato venezolano)
-            const matchTelefono = texto.match(/(?:58)?(0?4\d{9})/);
-            if (matchTelefono) {
-                let tel = matchTelefono[1];
-                if (tel.startsWith('0')) tel = tel.substring(1);
-                if (!tel.startsWith('58')) tel = '58' + tel;
-                document.getElementById('telefonoCliente').value = tel;
-            }
-
-            // 3. Intentar extraer nombre (palabras alfabéticas largas)
-            // Limpiamos un poco y dejamos el texto listo
-            alert("¡Datos pegados con éxito! Revisa que el teléfono y la empresa estén correctos.");
         }
 
         function enviarWhatsApp() {
             const empresa = document.getElementById('empresa').value;
             const nombre = document.getElementById('nombreCliente').value.trim() || "Cliente";
-            const telefono = document.getElementById('telefonoCliente').value.trim();
+            let telefono = document.getElementById('telefonoCliente').value.trim();
 
             if (!telefono) {
-                alert("Por favor asegúrate de que el teléfono del cliente esté completo.");
+                alert("Por favor ingresa el teléfono del destinatario.");
                 return;
+            }
+
+            // Limpiar formato de teléfono por si acaso escribieron el 0 inicial
+            if (telefono.startsWith('0')) {
+                telefono = telefono.substring(1);
+            }
+            if (!telefono.startsWith('58')) {
+                telefono = '58' + telefono;
             }
 
             const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
