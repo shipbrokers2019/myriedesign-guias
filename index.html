@@ -53,7 +53,7 @@
 
             <!-- Selector rápido interactivo -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea correcta (se limpiará sola):</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Toca la línea correcta (se unificará y limpiará sola):</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
                     <option value="">-- Selecciona el texto de la guía --</option>
                 </select>
@@ -83,10 +83,11 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Soporte HEIC y Limpieza Profunda -->
+    <!-- Script con Limpieza y Unificación Inteligente de Bloques -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
+        let bloquesGlobales = [];
 
         async function procesarGuiaInteligente(event) {
             let archivo = event.target.files[0];
@@ -96,7 +97,6 @@
             document.getElementById('previewBox').classList.remove('hidden');
             estado.innerText = "🔄 Preparando imagen...";
 
-            // Si es HEIC (común en iPhone), lo convertimos a JPG automáticamente
             if (archivo.name.toLowerCase().endsWith('.heic') || archivo.type === "image/heic") {
                 try {
                     const conversionBlob = await heic2any({
@@ -133,33 +133,85 @@
                     const texto = resultado.data.text;
                     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
                     
-                    extraerDatosConPrecision(lineas, texto);
+                    // Agrupar líneas en bloques lógicos (ej: si una línea tiene el nombre y la siguiente la cédula o teléfono)
+                    bloquesGlobales = agruparEnBloques(lineas);
+                    
+                    extraerDatosConPrecision(bloquesGlobales, texto);
                     estado.innerText = "✅ ¡Datos procesados con éxito!";
                 } catch (error) {
                     console.error(error);
-                    estado.innerText = "⚠️ Lectura manual lista (escribe o elige abajo).";
+                    estado.innerText = "⚠️ Lectura manual lista.";
                     document.getElementById('selectorRapidoContainer').classList.remove('hidden');
                 }
             };
             lector.readAsDataURL(archivo);
         }
 
+        // Agrupa líneas contiguas para que bloques como "INGRID" y "CAMPOS V-8142710" formen un solo elemento unificado
+        function agruparEnBloques(lineas) {
+            let bloques = [];
+            let bloqueActual = "";
+
+            for (let i = 0; i < lineas.length; i++) {
+                let l = lineas[i];
+                let lUp = l.toUpperCase();
+
+                // Detectar inicio de nuevo bloque de destinatario
+                if (lUp.includes('PEST:') || lUp.includes('DEST:') || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE') || lUp.includes('SR.') || lUp.includes('SRA.')) {
+                    if (bloqueActual) bloques.push(bloqueActual.trim());
+                    bloqueActual = l;
+                } else if (lUp.includes('DIR:') || lUp.includes('ORIGEN:') || lUp.includes('BARCELONA') || lUp.includes('TIPO SOBRE') || lUp.includes('CP IP')) {
+                    if (bloqueActual) {
+                        bloques.push(bloqueActual.trim());
+                        bloqueActual = "";
+                    }
+                    bloques.push(l); // Bloque individual para direcciones u otros
+                } else {
+                    if (bloqueActual) {
+                        bloqueActual += " " + l;
+                        // Si el bloque actual ya contiene cédula o teléfono, lo cerramos
+                        if (/\d{7,8}/.test(bloqueActual) || lUp.includes('TLF')) {
+                            bloques.push(bloqueActual.trim());
+                            bloqueActual = "";
+                        }
+                    } else {
+                        bloqueActual = l;
+                    }
+                }
+            }
+            if (bloqueActual) bloques.push(bloqueActual.trim());
+            return bloques.length > 0 ? bloques : lineas;
+        }
+
+        // Limpieza profunda y unificada: Extrae solo el nombre, barriendo cédulas, teléfonos y etiquetas
         function limpiarNombre(textoBruto) {
             if (!textoBruto) return "";
             let limpiado = textoBruto.toUpperCase();
 
-            limpiado = limpiado.replace(/DESTINATARI[O0]|DEST\.?|NOMBRE|CLIENTE|SR\.|SRA\./gi, '');
+            // 1. Quitar prefijos y etiquetas de campos
+            limpiado = limpiado.replace(/PEST[:\s]*|DESTINATARI[O0][:\s]*|DEST\.?[:\s]*|NOMBRE[:\s]*|CLIENTE[:\s]*|SR\.?[:\s]*|SRA\.?[:\s]*/gi, '');
+
+            // 2. Eliminar patrones completos de cédula (Ej: V-8142710, E-12345678, V8142710)
             limpiado = limpiado.replace(/\b([VVEP]-)?\d{1,2}\.?\d{3}\.?\d{3}\b/g, '');
+
+            // 3. Eliminar números de teléfono y etiquetas TLF
+            limpiado = limpiado.replace(/TLF[:\s]*\d+/gi, '');
             limpiado = limpiado.replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '');
 
+            // 4. Si quedan números sueltos largos al final (como partes de cédula incompletas), cortarlos
+            limpiado = limpiado.replace(/\b\d{5,}\b/g, '');
+
+            // 5. Si hay guiones molestos, limpiar espacios o tomar la parte con letras
             if (limpiado.includes('-')) {
                 let partes = limpiado.split('-');
                 let mejorParte = partes.reduce((a, b) => a.trim().split(' ').length >= b.trim().split(' ').length ? a : b);
                 limpiado = mejorParte;
             }
 
+            // 6. Limpiar símbolos sobrantes
             limpiado = limpiado.replace(/[:_\\/]+/g, ' ').trim();
 
+            // 7. Eliminar duplicados simétricos si los hubiera
             const palabras = limpiado.split(/\s+/);
             if (palabras.length >= 4 && palabras.length % 2 === 0) {
                 let mitad = palabras.length / 2;
@@ -171,8 +223,8 @@
             return limpiado.replace(/\s+/g, ' ').trim();
         }
 
-        function extraerDatosConPrecision(lineas, texto) {
-            const textoMayus = texto.toUpperCase();
+        function extraerDatosConPrecision(bloques, textoCompleto) {
+            const textoMayus = textoCompleto.toUpperCase();
 
             let empresaDetectada = 'TEALCA';
             if (textoMayus.includes('TEALCA')) empresaDetectada = 'TEALCA';
@@ -182,14 +234,15 @@
 
             document.getElementById('empresa').value = empresaDetectada;
 
+            // Extracción de Teléfono
             let telefonoEncontrado = "";
             const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
-            const matchesCel = texto.match(regexCelular);
+            const matchesCel = textoCompleto.match(regexCelular);
             
             if (matchesCel && matchesCel.length > 0) {
                 telefonoEncontrado = matchesCel[0];
             } else {
-                const numerosLimpios = texto.replace(/\D/g, ' ');
+                const numerosLimpios = textoCompleto.replace(/\D/g, ' ');
                 const palabrasNum = numerosLimpios.split(/\s+/).filter(n => n.length >= 10 && n.length <= 11 && !n.startsWith('8464') && !n.startsWith('5117') && !n.startsWith('0310'));
                 if (palabrasNum.length > 0) telefonoEncontrado = palabrasNum[0];
             }
@@ -199,21 +252,14 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
+            // Detección automática del nombre
             let nombreEncontrado = "";
-            const palabrasBasura = ['AV', 'CALLE', 'EDIF', 'PISO', 'LOCAL', 'ZONA', 'CENTRO', 'URB', 'FINAL', 'INTERCOMUNAL', 'CC', 'CCS', 'MRW', 'ZOOM', 'TEALCA', 'REMITENTE', 'DESTINATARIO', 'MER', 'COBRAR', 'PESO', 'KG'];
-
-            for (let linea of lineas) {
-                let limpiaTest = linea.toUpperCase();
-                let esBasura = palabrasBasura.some(palabra => new RegExp(`\\b${palabra}\\b`, 'i').test(limpiaTest));
-                
-                if (!esBasura && linea.length > 6) {
-                    let resultadoLimpio = limpiarNombre(linea);
-                    let numPalabras = resultadoLimpio.split(' ').length;
-                    
-                    if (numPalabras >= 2 && numPalabras <= 4 && !/\d/.test(resultadoLimpio)) {
-                        nombreEncontrado = resultadoLimpio;
-                        break;
-                    }
+            for (let b of bloques) {
+                let limpio = limpiarNombre(b);
+                let numPalabras = limpio.split(' ').length;
+                if (numPalabras >= 2 && numPalabras <= 4 && !/\d/.test(limpio) && !limpio.includes('DIR') && !limpio.includes('BARCELONA')) {
+                    nombreEncontrado = limpio;
+                    break;
                 }
             }
 
@@ -221,14 +267,15 @@
                 document.getElementById('nombreCliente').value = nombreEncontrado;
             }
 
+            // Llenar el selector rápido con los bloques unificados
             const selectSugerencias = document.getElementById('listaSugerencias');
-            selectSugerencias.innerHTML = '<option value="">-- Toca la línea correcta y se limpiará sola --</option>';
+            selectSugerencias.innerHTML = '<option value="">-- Toca el bloque correcto (se limpiará solo) --</option>';
             
-            lineas.forEach(l => {
-                if (l.length > 4 && !l.toUpperCase().includes('ZOOM') && !l.toUpperCase().includes('MRW')) {
+            bloques.forEach(b => {
+                if (b.length > 3) {
                     let opt = document.createElement('option');
-                    opt.value = l;
-                    opt.textContent = l;
+                    opt.value = b;
+                    opt.textContent = b;
                     selectSugerencias.appendChild(opt);
                 }
             });
