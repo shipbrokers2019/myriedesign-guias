@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Definitivo con Búsqueda Inversa -->
+    <!-- Script con Lógica Quirúrgica para Zoom -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -140,28 +140,60 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. EXTRACCIÓN DE DESTINATARIO (ESTRATEGIA INVERSA DESDE LA DIRECCIÓN)
+            // 3. EXTRACCIÓN DE DESTINATARIO
             let nombreEncontrado = "";
 
-            for (let i = 0; i < lineas.length; i++) {
-                let lUp = lineas[i].toUpperCase();
-
-                // Identificamos dónde comienza la dirección (ej: "FINAL", "AV", "CALLE") para retroceder y tomar el nombre
-                if (lUp.includes('FINAL ') || lUp.startsWith('AV ') || lUp.includes('URB ') || lUp.includes('CALLE ')) {
-                    // Si encontramos la dirección, la línea justo anterior suele ser el nombre del destinatario
-                    if (i > 0) {
-                        let posibleNombre = lineas[i - 1];
-                        // Verificamos que no sea la etiqueta de la empresa o basura
-                        if (!posibleNombre.includes('ZOOM') && !posibleNombre.includes('MRW') && !posibleNombre.includes('TEALCA') && posibleNombre.length > 3) {
-                            nombreEncontrado = posibleNombre;
+            if (empresaDetectada === 'ZOOM') {
+                // En ZOOM el bloque superior suele contener "ZOOM", número de guía y la zona (ej: "CCS"). 
+                // El nombre del destinatario viene justo después del bloque de cabecera de la guía.
+                for (let i = 0; i < lineas.length; i++) {
+                    let lUp = lineas[i].toUpperCase();
+                    // Buscamos la línea donde aparece "ZOOM" o el código de sucursal "CCS" para tomar lo que está inmediatamente abajo
+                    if (lUp.includes('ZOOM') || lUp.includes('CCS')) {
+                        // Revisamos las siguientes 3 líneas para cazar el nombre real (evitando números de guía cortos)
+                        for (let j = 1; j <= 3; j++) {
+                            if (i + j < lineas.length) {
+                                let cand = lineas[i + j];
+                                // Un nombre válido en Zoom suele tener al menos 2 palabras y no ser una dirección o código numérico
+                                if (cand.length > 5 && !/\d{5,}/.test(cand) && !cand.includes('FINAL') && !cand.includes('AV ')) {
+                                    nombreEncontrado = cand;
+                                    break;
+                                }
+                            }
+                        }
+                        if (nombreEncontrado) break;
+                    }
+                }
+                
+                // Si por alguna razón no lo halló con Zoom/CCS, buscamos la línea anterior a la dirección "FINAL"
+                if (!nombreEncontrado) {
+                    for (let i = 0; i < lineas.length; i++) {
+                        if (lineas[i].toUpperCase().includes('FINAL')) {
+                            if (i > 0) nombreEncontrado = lineas[i - 1];
                             break;
                         }
                     }
                 }
-            }
 
-            // Plan de respaldo si no detectó la dirección por palabras clave: buscar la línea que contenga guión repetido o formato de nombre largo
-            if (!nombreEncontrado) {
+            } else if (empresaDetectada === 'MRW') {
+                // Lógica que ya te funcionó para MRW
+                for (let i = 0; i < lineas.length; i++) {
+                    let lUp = lineas[i].toUpperCase();
+                    if (lUp.includes('REMITENTE') || lUp.includes('ORIGEN')) continue;
+
+                    if (lUp.includes('DEST') || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE')) {
+                        let limpia = lineas[i].replace(/DESTINATARIO|DEST\.?|CLIENTE|SR\.|SRA\./gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        if (limpia.length > 3) {
+                            nombreEncontrado = limpia;
+                            break;
+                        } else if (i + 1 < lineas.length) {
+                            nombreEncontrado = lineas[i + 1];
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // Genérico / Tealca
                 for (let linea of lineas) {
                     if (linea.includes('-') && linea.length > 6 && !linea.toUpperCase().includes('REMITENTE')) {
                         nombreEncontrado = linea;
@@ -170,7 +202,7 @@
                 }
             }
 
-            // Limpieza final de duplicados (ej: "VERYGIONETT LOAIZA - VERYGIONETT LOAIZA")
+            // Limpieza final de duplicados simétricos (ej: "VERYGIONETT LOAIZA - VERYGIONETT LOAIZA")
             if (nombreEncontrado) {
                 if (nombreEncontrado.includes('-')) {
                     nombreEncontrado = nombreEncontrado.split('-')[0].trim();
