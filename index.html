@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Lógica de Destinatario Corregida para Zoom y MRW -->
+    <!-- Script de Extracción Precisa -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -95,9 +95,10 @@
                 try {
                     const resultado = await Tesseract.recognize(urlImagenActual, 'spa');
                     const texto = resultado.data.text;
-                    console.log("Texto bruto de la IA:", texto);
-
-                    extraerDatosConPrecision(texto);
+                    
+                    const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                    
+                    extraerDatosConPrecision(lineas, texto);
                     estado.innerText = "✅ ¡Datos rellenados automáticamente!";
                 } catch (error) {
                     console.error(error);
@@ -107,8 +108,7 @@
             lector.readAsDataURL(archivoSeleccionado);
         }
 
-        function extraerDatosConPrecision(texto) {
-            const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        function extraerDatosConPrecision(lineas, texto) {
             const textoMayus = texto.toUpperCase();
 
             // 1. Detección de Empresa Courier
@@ -120,7 +120,7 @@
 
             document.getElementById('empresa').value = empresaDetectada;
 
-            // 2. LÓGICA DE TELÉFONOS (100% INTACTA Y PROTEGIDA)
+            // 2. LÓGICA DE TELÉFONOS (100% INTACTA)
             let telefonoEncontrado = "";
             const regexCelular = /(?:0?(?:414|424|412|416|426)\d{7})/g;
             const matchesCel = texto.match(regexCelular);
@@ -144,7 +144,6 @@
             let nombreEncontrado = "";
 
             if (empresaDetectada === 'TEALCA') {
-                // TEALCA: Intacto (Línea que dice NOMBRE)
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
                     if (lUp.includes('NOMBRE')) {
@@ -155,18 +154,19 @@
                         }
                     }
                 }
-            } else if (empresaDetectada === 'ZOOM' || empresaDetectada === 'MRW') {
-                // ZOOM y MRW: Búsqueda flexible de la línea de destinatario (busca DEST, DESTINATARIO o DESTINO)
+            } else if (empresaDetectada === 'ZOOM') {
+                // ZOOM: Buscar específicamente la línea que contenga la palabra DESTINATARIO (o DEST.)
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
-                    if (lUp.includes('DEST') || lUp.includes('DESTINATARIO') || lUp.includes('DESTINO')) {
-                        let limpia = linea.replace(/DESTINATARIO|DESTINO|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
-                        // Si la etiqueta estaba sola en la línea, tomamos la siguiente línea que tenga texto útil
-                        if (limpia.length <= 2) {
-                            let index = lineas.indexOf(linea);
-                            if (index !== -1 && index + 1 < lineas.length) {
-                                limpia = lineas[index + 1].replace(/[:\-_\/]+/g, ' ').trim();
-                            }
+                    if (lUp.includes('REMITENTE')) continue; // Evitamos caer en el remitente
+
+                    if (lUp.includes('DESTINATARIO') || lUp.includes('DEST.')) {
+                        // Limpiamos la etiqueta y dejamos el nombre de la persona
+                        let limpia = linea.replace(/DESTINATARIO|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        // Si viene duplicado por formato de impresión (ej: VIVE K-CASA - VIVE K-CASA), cortamos en la mitad o dejamos limpio
+                        if (limpia.includes('-')) {
+                            let partes = limpia.split('-');
+                            limpia = partes[0].trim(); // Tomamos la primera parte limpia
                         }
                         if (limpia.length > 2) {
                             nombreEncontrado = limpia;
@@ -174,11 +174,21 @@
                         }
                     }
                 }
-            } else {
-                // Respaldo general por si es LAE u otro
+            } else if (empresaDetectada === 'MRW') {
                 for (let linea of lineas) {
                     let lUp = linea.toUpperCase();
-                    if (lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE')) {
+                    if ((lUp.includes('DEST') || lUp.includes('DESTINATARIO')) && !lUp.includes('REMITENTE')) {
+                        let limpia = linea.replace(/DESTINATARIO|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
+                        if (limpia.length > 2) {
+                            nombreEncontrado = limpia;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                for (let linea of lineas) {
+                    let lUp = linea.toUpperCase();
+                    if ((lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE')) && !lUp.includes('REMITENTE')) {
                         let limpia = linea.replace(/DESTINATARIO|CLIENTE|NOMBRE/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
                         if (limpia.length > 2) {
                             nombreEncontrado = limpia;
