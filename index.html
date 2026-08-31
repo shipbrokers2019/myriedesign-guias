@@ -73,7 +73,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Lógica Exacta por Posición de Líneas -->
+    <!-- Script con Detección Inteligente por Patrones -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -140,72 +140,48 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. EXTRACCIÓN DE DESTINATARIO SEGÚN LA ESTRUCTURA REAL
+            // 3. EXTRACCIÓN INTELIGENTE DE DESTINATARIO (SIN DEPENDER DE LÍNEAS FIJAS)
             let nombreEncontrado = "";
 
-            if (empresaDetectada === 'ZOOM') {
-                // ZOOM: El nombre viene justo en la línea anterior o en la misma línea de la etiqueta "Destinatario:"
-                for (let i = 0; i < lineas.length; i++) {
-                    let lUp = lineas[i].toUpperCase();
-                    if (lUp.includes('DESTINATARIO') || lUp.includes('DESTINATARI0')) {
-                        // Revisamos si el nombre viene pegado en la misma línea quitando la etiqueta
-                        let limpia = lUp.replace(/DESTINATARI[O0]|DEST\.?/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
-                        
-                        if (limpia.length > 3) {
-                            nombreEncontrado = limpia;
-                        } else if (i > 0) {
-                            // Si estaba vacía la misma línea, tomamos la línea anterior exacta
-                            nombreEncontrado = lineas[i - 1];
-                        }
+            // Recorremos buscando líneas que tengan pinta de nombre (evitando palabras prohibidas de direcciones o sucursales)
+            const palabrasBasura = ['AV', 'CALLE', 'EDIF', 'PISO', 'LOCAL', 'ZONA', 'CENTRO', 'URB', 'FINAL', 'INTERCOMUNAL', 'CC', 'CCS', 'MRW', 'ZOOM', 'TEALCA', 'REMITENTE', 'DESTINATARIO'];
+
+            for (let linea of lineas) {
+                let limpia = linea.toUpperCase()
+                    .replace(/DESTINATARI[O0]|DEST\.?|NOMBRE|CLIENTE/gi, '')
+                    .replace(/[:\-_\/]+/g, ' ')
+                    .trim();
+
+                // Si la línea tiene un guión en medio (formato típico de nombre repetido o nombre - cédula)
+                if (linea.includes('-')) {
+                    let partes = linea.split('-');
+                    let posibleNombre = partes[0].replace(/DESTINATARI[O0]|DEST\.?/gi, '').trim();
+                    
+                    // Validamos que tenga al menos dos palabras y no sea una dirección
+                    let esBasura = palabrasBasura.some(palabra => posibleNombre.includes(palabra));
+                    if (posibleNombre.split(' ').length >= 2 && !esBasura && posibleNombre.length > 4) {
+                        nombreEncontrado = posibleNombre;
                         break;
                     }
                 }
-                
-                // Limpiamos duplicados si viene repetido (ej: "VERYGIONETT LOAIZA - VERYGIONETT LOAIZA")
-                if (nombreEncontrado.includes('-')) {
-                    nombreEncontrado = nombreEncontrado.split('-')[0].trim();
-                }
 
-            } else if (empresaDetectada === 'MRW') {
-                // MRW: Buscamos la línea del destinatario evitando remitente
-                for (let i = 0; i < lineas.length; i++) {
-                    let lUp = lineas[i].toUpperCase();
-                    if (lUp.includes('REMITENTE') || lUp.includes('ORIGEN')) continue;
+                // Validación general para líneas que parecen nombres limpios
+                let esBasura = palabrasBasura.some(palabra => limpia.startsWith(palabra) || limpia.includes(' ' + palabra + ' '));
+                let palabrasLimpia = limpia.split(/\s+/);
 
-                    if (lUp.includes('DEST') || lUp.includes('DESTINATARIO') || lUp.includes('CLIENTE')) {
-                        let limpia = lineas[i].replace(/DESTINATARIO|DEST\.?|CLIENTE|SR\.|SRA\./gi, '').replace(/[:\-_\/]+/g, ' ').trim();
-                        if (limpia.length > 3) {
-                            nombreEncontrado = limpia;
-                            break;
-                        } else if (i + 1 < lineas.length) {
-                            nombreEncontrado = lineas[i + 1];
-                            break;
-                        }
-                    }
-                }
-
-            } else if (empresaDetectada === 'TEALCA') {
-                // TEALCA: Buscamos la línea que contenga la palabra NOMBRE o el destinatario
-                for (let i = 0; i < lineas.length; i++) {
-                    let lUp = lineas[i].toUpperCase();
-                    if (lUp.includes('NOMBRE') || lUp.includes('DESTINATARIO')) {
-                        let limpia = lineas[i].replace(/NOMBRE|DESTINATARIO/gi, '').replace(/[:\-_\/]+/g, ' ').trim();
-                        if (limpia.length > 3) {
-                            nombreEncontrado = limpia;
-                            break;
-                        } else if (i + 1 < lineas.length) {
-                            nombreEncontrado = lineas[i + 1];
-                            break;
-                        }
+                if (!esBasura && palabrasLimpia.length >= 2 && palabrasLimpia.length <= 5 && limpia.length > 5) {
+                    // Verificamos que no sea pura numeración
+                    let soloNumeros = palabrasLimpia.every(p => /^\d+$/.test(p));
+                    if (!soloNumeros) {
+                        nombreEncontrado = limpia;
+                        break;
                     }
                 }
             }
 
-            // Limpieza general final para quitar guiones dobles o espacios excesivos
+            // Limpieza final de duplicados simétricos (ej: "VERYGIONETT LOAIZA VERYGIONETT LOAIZA")
             if (nombreEncontrado) {
-                nombreEncontrado = nombreEncontrado.replace(/[:\-_\/]+/g, ' ').replace(/\s+/g, ' ').trim();
-                // Si la mitad del texto se repite idéntica (ej. nombre doble), cortamos la mitad
-                const palabras = nombreEncontrado.split(' ');
+                const palabras = nombreEncontrado.split(/\s+/);
                 if (palabras.length >= 4 && palabras.length % 2 === 0) {
                     let mitad = palabras.length / 2;
                     let p1 = palabras.slice(0, mitad).join(' ');
