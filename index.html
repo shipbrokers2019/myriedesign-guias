@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Filtro Anti-Remitente para Teléfono -->
+    <!-- Script con Filtro por Zonas (Mitad inferior de la guía) -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -153,28 +153,26 @@
             else if (textoMayus.includes('LAE')) empresa = 'LAE';
             document.getElementById('empresa').value = empresa;
 
-            // 2. Extraer Teléfono del Destinatario (Ignorando el primero de arriba)
+            // 2. Extraer Teléfono ignorando la parte superior (remitente/oficina)
             let telefonoEncontrado = "";
+            
+            // Dividimos el texto en líneas y filtramos solo desde la mitad hacia abajo para evitar el encabezado
+            let lineasInferiores = lineas.slice(Math.floor(lineas.length * 0.3)); // Omitimos el primer 30% superior
 
-            // Primero buscamos de forma estricta en líneas que hablen de destinatario o teléfono abajo
-            for (let l of lineas) {
-                let lUp = l.toUpperCase();
-                if (lUp.includes('DEST') || lUp.includes('TLF') || lUp.includes('TEL') || lUp.includes('TELEFONO')) {
-                    let matchLinea = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
-                    if (matchLinea) {
-                        telefonoEncontrado = matchLinea[0].replace(/\D/g, '');
-                        break;
-                    }
+            // Buscamos primero en las líneas inferiores
+            for (let l of lineasInferiores) {
+                let matchLinea = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
+                if (matchLinea) {
+                    telefonoEncontrado = matchLinea[0].replace(/\D/g, '');
+                    break;
                 }
             }
 
-            // Si no se encontró por etiqueta, buscamos todos los teléfonos y agarramos el ÚLTIMO (el del cliente, omitiendo el primero del remitente)
+            // Si por alguna razón no lo halló abajo, revisamos todo el texto pero tomando el último número que aparezca
             if (!telefonoEncontrado) {
                 let matchesGeneral = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
                 if (matchesGeneral && matchesGeneral.length > 0) {
-                    // Si hay más de uno, tomamos el último; si hay uno solo, lo tomamos
-                    let indiceElegido = matchesGeneral.length > 1 ? matchesGeneral.length - 1 : 0;
-                    telefonoEncontrado = matchesGeneral[indiceElegido].replace(/\D/g, '');
+                    telefonoEncontrado = matchesGeneral[matchesGeneral.length - 1].replace(/\D/g, '');
                 }
             }
 
