@@ -81,10 +81,13 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Filtro por Zonas (Mitad inferior de la guía) -->
+    <!-- Script con Extracción Directa desde la Línea del Nombre -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
+
+        // SI TIENES UN NÚMERO DE REMITENTE FIJO, puedes colocarlo aquí entre comillas para que la app siempre lo ignore:
+        const TELEFONO_REMITENTE_FIJO = "4143939905"; // Basado en el que salió en tu prueba anterior
 
         async function procesarGuiaInteligente(event) {
             let archivo = event.target.files[0];
@@ -153,58 +156,62 @@
             else if (textoMayus.includes('LAE')) empresa = 'LAE';
             document.getElementById('empresa').value = empresa;
 
-            // 2. Extraer Teléfono ignorando la parte superior (remitente/oficina)
-            let telefonoEncontrado = "";
-            
-            // Dividimos el texto en líneas y filtramos solo desde la mitad hacia abajo para evitar el encabezado
-            let lineasInferiores = lineas.slice(Math.floor(lineas.length * 0.3)); // Omitimos el primer 30% superior
-
-            // Buscamos primero en las líneas inferiores
-            for (let l of lineasInferiores) {
-                let matchLinea = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
-                if (matchLinea) {
-                    telefonoEncontrado = matchLinea[0].replace(/\D/g, '');
-                    break;
-                }
-            }
-
-            // Si por alguna razón no lo halló abajo, revisamos todo el texto pero tomando el último número que aparezca
-            if (!telefonoEncontrado) {
-                let matchesGeneral = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
-                if (matchesGeneral && matchesGeneral.length > 0) {
-                    telefonoEncontrado = matchesGeneral[matchesGeneral.length - 1].replace(/\D/g, '');
-                }
-            }
-
-            if (telefonoEncontrado) {
-                if (telefonoEncontrado.startsWith('0') && telefonoEncontrado.length === 11) {
-                    telefonoEncontrado = telefonoEncontrado.substring(1);
-                }
-                document.getElementById('telefonoCliente').value = telefonoEncontrado;
-            }
-
-            // 3. Procesar líneas para el nombre
+            // 2. Procesar líneas buscando nombre y teléfono al mismo tiempo
             let posiblesNombres = [];
+            let telefonoEncontrado = "";
 
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
 
+                // Ignorar líneas de cabecera / tracking / peso
                 if (lUp.includes('TRACKING') || lUp.includes('ORIGEN') || lUp.includes('PESO') || 
                     lUp.includes('KG') || lUp.includes('BS.') || lUp.includes('COBRO EN DESTINO') || 
                     lUp.includes('CANT. CUPONES') || /^\d+$/.test(lUp)) {
                     continue;
                 }
 
+                // Buscar si en esta línea viene un número de teléfono celular
+                let matchTlfLinea = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
+                if (matchTlfLinea) {
+                    let tlfCandidato = matchTlfLinea[0].replace(/\D/g, '');
+                    if (tlfCandidato.startsWith('0') && tlfCandidato.length === 11) tlfCandidato = tlfCandidato.substring(1);
+
+                    // Validar que no sea el teléfono fijo del remitente
+                    if (tlfCandidato !== TELEFONO_REMITENTE_FIJO) {
+                        telefonoEncontrado = tlfCandidato; // ¡Este es el del cliente pegado a su nombre!
+                    }
+                }
+
+                // Limpiar basura para extraer el nombre limpio
                 let limpio = lUp
                     .replace(/DESTINATARIO:|DEST:|DESTINATARIO|DEST|PEST:|PEST|NOMBRE|CLIENTE|INATARIO|TLF|TEL/g, '')
                     .replace(/[VE]-?\d{6,}/g, '')
-                    .replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '')
+                    .replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '') // Quitar el teléfono del texto del nombre
                     .replace(/[:\-_\\/]+/g, ' ')
                     .trim();
 
                 if (limpio.length > 4 && !/^\d+$/.test(limpio)) {
                     posiblesNombres.push(limpio);
                 }
+            }
+
+            // Si no se encontró por línea directa, buscamos cualquier otro teléfono que no sea el remitente
+            if (!telefonoEncontrado) {
+                let matchesGeneral = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
+                if (matchesGeneral) {
+                    for (let m of matchesGeneral) {
+                        let tlfGeneral = m.replace(/\D/g, '');
+                        if (tlfGeneral.startsWith('0') && tlfGeneral.length === 11) tlfGeneral = tlfGeneral.substring(1);
+                        if (tlfGeneral !== TELEFONO_REMITENTE_FIJO) {
+                            telefonoEncontrado = tlfGeneral;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (telefonoEncontrado) {
+                document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
             let unicos = [...new Set(posiblesNombres)];
