@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Extracción Inteligente Dual (Nombre + Teléfono integrado) -->
+    <!-- Script con Filtro Anti-Remitente para Teléfono -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -153,13 +153,29 @@
             else if (textoMayus.includes('LAE')) empresa = 'LAE';
             document.getElementById('empresa').value = empresa;
 
-            // 2. Extraer Teléfono de forma prioritaria
+            // 2. Extraer Teléfono del Destinatario (Ignorando el primero de arriba)
             let telefonoEncontrado = "";
-            let matchesGeneral = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
-            
-            if (matchesGeneral && matchesGeneral.length > 0) {
-                // Agarramos el primer número celular válido que aparezca
-                telefonoEncontrado = matchesGeneral[0].replace(/\D/g, '');
+
+            // Primero buscamos de forma estricta en líneas que hablen de destinatario o teléfono abajo
+            for (let l of lineas) {
+                let lUp = l.toUpperCase();
+                if (lUp.includes('DEST') || lUp.includes('TLF') || lUp.includes('TEL') || lUp.includes('TELEFONO')) {
+                    let matchLinea = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
+                    if (matchLinea) {
+                        telefonoEncontrado = matchLinea[0].replace(/\D/g, '');
+                        break;
+                    }
+                }
+            }
+
+            // Si no se encontró por etiqueta, buscamos todos los teléfonos y agarramos el ÚLTIMO (el del cliente, omitiendo el primero del remitente)
+            if (!telefonoEncontrado) {
+                let matchesGeneral = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
+                if (matchesGeneral && matchesGeneral.length > 0) {
+                    // Si hay más de uno, tomamos el último; si hay uno solo, lo tomamos
+                    let indiceElegido = matchesGeneral.length > 1 ? matchesGeneral.length - 1 : 0;
+                    telefonoEncontrado = matchesGeneral[indiceElegido].replace(/\D/g, '');
+                }
             }
 
             if (telefonoEncontrado) {
@@ -169,7 +185,7 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. Procesar líneas para el nombre y guardar opciones limpias
+            // 3. Procesar líneas para el nombre
             let posiblesNombres = [];
 
             for (let l of lineas) {
@@ -181,15 +197,6 @@
                     continue;
                 }
 
-                // Extraer el teléfono si estuviera en la misma línea antes de limpiar
-                let matchTlfLinea = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
-                if (matchTlfLinea && !telefonoEncontrado) {
-                    let tlfExtraido = matchTlfLinea[0].replace(/\D/g, '');
-                    if (tlfExtraido.startsWith('0') && tlfExtraido.length === 11) tlfExtraido = tlfExtraido.substring(1);
-                    document.getElementById('telefonoCliente').value = tlfExtraido;
-                }
-
-                // Limpiar basura del nombre
                 let limpio = lUp
                     .replace(/DESTINATARIO:|DEST:|DESTINATARIO|DEST|PEST:|PEST|NOMBRE|CLIENTE|INATARIO|TLF|TEL/g, '')
                     .replace(/[VE]-?\d{6,}/g, '')
