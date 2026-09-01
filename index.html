@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Filtro Quirúrgico por Etiquetas y Formato -->
+    <!-- Script con Filtro Anti-Remitente -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -153,28 +153,28 @@
             else if (textoMayus.includes('LAE')) empresa = 'LAE';
             document.getElementById('empresa').value = empresa;
 
-            // 2. Búsqueda quirúrgica de Teléfono
+            // 2. Extraer Teléfono ignorando totalmente líneas de remitente
             let telefonoEncontrado = "";
 
-            // Intento A: Buscar líneas que contengan explícitamente "TLF" o "TEL"
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
-                if (lUp.includes('TLF') || lUp.includes('TEL')) {
-                    let matchTlf = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
-                    if (matchTlf) {
-                        telefonoEncontrado = matchTlf[0].replace(/\D/g, '');
-                        break;
-                    }
+                // Si la línea pertenece al remitente, la saltamos por completo
+                if (lUp.includes('REM') || lUp.includes('REMITE') || lUp.includes('REM NTE')) {
+                    continue;
+                }
+                let matchTlf = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
+                if (matchTlf) {
+                    telefonoEncontrado = matchTlf[0].replace(/\D/g, '');
+                    break;
                 }
             }
 
-            // Intento B: Si no tiene etiqueta, buscar todos los celulares y descartar el primerísimo número de arriba (que suele ser el remitente)
+            // Plan de respaldo si no se encontró con etiqueta
             if (!telefonoEncontrado) {
                 let todosLosTelefonos = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
                 if (todosLosTelefonos && todosLosTelefonos.length > 0) {
-                    // Si hay más de uno, filtramos y agarramos el que NO sea el de arriba del todo (o el último)
                     let listaLimpiaTlf = todosLosTelefonos.map(t => t.replace(/\D/g, ''));
-                    // Tomamos el último si hay varios, asegurando que evitemos el origen
+                    // Tomamos el último teléfono detectado (que suele ser el destinatario al fondo)
                     telefonoEncontrado = listaLimpiaTlf[listaLimpiaTlf.length - 1];
                 }
             }
@@ -186,13 +186,14 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. Procesar líneas para el nombre (excluyendo números de cédula, tracking o códigos cortos)
+            // 3. Procesar líneas para el nombre (EXCLUYENDO REMITENTE Y DATOS TÉCNICOS)
             let posiblesNombres = [];
 
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
 
-                if (lUp.includes('TRACKING') || lUp.includes('ORIGEN') || lUp.includes('PESO') || 
+                if (lUp.includes('REM') || lUp.includes('REMITE') || lUp.includes('REM NTE') ||
+                    lUp.includes('TRACKING') || lUp.includes('ORIGEN') || lUp.includes('PESO') || 
                     lUp.includes('KG') || lUp.includes('BS.') || lUp.includes('COBRO EN DESTINO') || 
                     lUp.includes('CANT. CUPONES') || lUp.includes('TLF') || lUp.includes('TEL') ||
                     /^\d+$/.test(lUp) || lUp.length < 5) {
@@ -206,7 +207,6 @@
                     .replace(/[:\-_\\/]+/g, ' ')
                     .trim();
 
-                // Validar que parezca un nombre real (letras y espacios, evitando cédulas sueltas como 17082813)
                 if (limpio.length > 4 && /[A-Z]/.test(limpio) && !/^\d+$/.test(limpio.replace(/\s/g, ''))) {
                     posiblesNombres.push(limpio);
                 }
@@ -225,6 +225,8 @@
                     selectSugerencias.appendChild(opt);
                 });
                 document.getElementById('selectorRapidoContainer').classList.remove('hidden');
+            } else {
+                document.getElementById('selectorRapidoContainer').classList.add('hidden');
             }
         }
 
