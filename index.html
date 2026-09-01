@@ -53,9 +53,9 @@
 
             <!-- Ventana / Selector rápido rosado -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Si el nombre no es exacto, escoge otro aquí:</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Despliega aquí para ver todas las líneas de la guía:</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
-                    <option value="">-- Selecciona el destinatario correcto --</option>
+                    <option value="">-- Selecciona la opción correcta --</option>
                 </select>
             </div>
 
@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Corregido para Teléfono y Extracción de Nombre -->
+    <!-- Script con Despliegue Total de Líneas -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -140,7 +140,7 @@
 
         function analizarTextoGuia(texto) {
             const textoMayus = texto.toUpperCase();
-            const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 2);
 
             // 1. Detectar Empresa
             let empresa = 'MRW';
@@ -149,7 +149,7 @@
             else if (textoMayus.includes('LAE')) empresa = 'LAE';
             document.getElementById('empresa').value = empresa;
 
-            // 2. Extraer Teléfono (Funcionamiento original infalible restaurado)
+            // 2. Extraer Teléfono (Infalible)
             let telefono = "";
             const matchesTlf = [...texto.matchAll(/\b0?((?:414|424|412|416|426)\d{7})\b/g)];
             if (matchesTlf.length > 0) {
@@ -162,56 +162,23 @@
                 document.getElementById('telefonoCliente').value = telefono;
             }
 
-            // 3. Extraer Nombre y limpiar etiquetas como PEST o Cédulas
-            let posiblesNombres = [];
-
-            for (let i = 0; i < lineas.length; i++) {
-                let lUp = lineas[i].toUpperCase();
-                if (lUp.includes('DEST') || lUp.includes('PEST') || lUp.includes('NOMBRE') || lUp.includes('CLIENTE') || lUp.includes('INATARIO')) {
-                    // Limpieza profunda de prefijos y números de cédula/teléfonos pegados
-                    let limpio = lUp
-                        .replace(/DESTINATARIO|DEST|PEST:|PEST|NOMBRE|CLIENTE|CEDULA|C\.I\.|V-|E-|RIF|TEL|TLF|INATARIO/g, '')
-                        .replace(/\b\d{6,}\b/g, '') // Quita números largos como cédulas
-                        .replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '') // Quita teléfonos si están en la misma línea
-                        .replace(/[:\-_\\/]+/g, ' ')
-                        .trim();
-
-                    if (limpio.length > 3) {
-                        posiblesNombres.push(limpio);
-                    } else if (i + 1 < lineas.length) {
-                        let limpioSig = lineas[i + 1]
-                            .toUpperCase()
-                            .replace(/V-|E-|RIF|TEL|TLF/g, '')
-                            .replace(/\b\d{6,}\b/g, '')
-                            .replace(/[:\-_\\/]+/g, ' ')
-                            .trim();
-                        if (limpioSig.length > 3) {
-                            posiblesNombres.push(limpioSig);
-                        }
-                    }
+            // 3. Recolectar TODAS las líneas válidas para que el usuario elija sin filtros estrictos
+            let lineasValidas = [];
+            for (let l of lineas) {
+                let limpio = l.replace(/[:\-_\\/]+/g, ' ').trim();
+                if (limpio.length > 3) {
+                    lineasValidas.push(limpio);
                 }
             }
 
-            // Si no encontró por etiquetas directas, busca líneas generales de texto válido
-            if (posiblesNombres.length === 0) {
-                for (let l of lineas) {
-                    let lUp = l.toUpperCase();
-                    if (lUp.includes('ORIGEN') || lUp.includes('RETIRAR') || lUp.includes('OFICINA') || lUp.includes('TRACKING')) continue;
-                    
-                    let limpioGen = l.replace(/[:\-_\\/]+/g, ' ').trim();
-                    if (limpioGen.length > 5 && !/^\d+$/.test(limpioGen) && limpioGen.split(' ').length >= 2) {
-                        posiblesNombres.push(limpioGen);
-                    }
-                }
-            }
-
-            let unicos = [...new Set(posiblesNombres)];
+            let unicos = [...new Set(lineasValidas)];
             if (unicos.length > 0) {
+                // Ponemos la primera línea útil por defecto
                 document.getElementById('nombreCliente').value = unicos[0];
 
-                // Cargar la caja rosada con las opciones
+                // Llenar la caja rosada con TODO el listado completo detectado
                 const selectSugerencias = document.getElementById('listaSugerencias');
-                selectSugerencias.innerHTML = '<option value="">-- Selecciona el destinatario correcto --</option>';
+                selectSugerencias.innerHTML = '<option value="">-- Selecciona la opción correcta --</option>';
                 unicos.forEach(op => {
                     let opt = document.createElement('option');
                     opt.value = op;
