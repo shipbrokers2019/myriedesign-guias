@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Actualizado con Filtros Antibasura de Origen/Oficina -->
+    <!-- Script Corregido para Teléfono y Extracción de Nombre -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -149,7 +149,7 @@
             else if (textoMayus.includes('LAE')) empresa = 'LAE';
             document.getElementById('empresa').value = empresa;
 
-            // 2. Extraer Teléfono
+            // 2. Extraer Teléfono (Funcionamiento original infalible restaurado)
             let telefono = "";
             const matchesTlf = [...texto.matchAll(/\b0?((?:414|424|412|416|426)\d{7})\b/g)];
             if (matchesTlf.length > 0) {
@@ -162,38 +162,41 @@
                 document.getElementById('telefonoCliente').value = telefono;
             }
 
-            // 3. Extraer Nombre Filtrando basura de Origen/Oficina
+            // 3. Extraer Nombre y limpiar etiquetas como PEST o Cédulas
             let posiblesNombres = [];
 
             for (let i = 0; i < lineas.length; i++) {
-                let l = lineas[i];
-                let lUp = l.toUpperCase();
+                let lUp = lineas[i].toUpperCase();
+                if (lUp.includes('DEST') || lUp.includes('PEST') || lUp.includes('NOMBRE') || lUp.includes('CLIENTE') || lUp.includes('INATARIO')) {
+                    // Limpieza profunda de prefijos y números de cédula/teléfonos pegados
+                    let limpio = lUp
+                        .replace(/DESTINATARIO|DEST|PEST:|PEST|NOMBRE|CLIENTE|CEDULA|C\.I\.|V-|E-|RIF|TEL|TLF|INATARIO/g, '')
+                        .replace(/\b\d{6,}\b/g, '') // Quita números largos como cédulas
+                        .replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '') // Quita teléfonos si están en la misma línea
+                        .replace(/[:\-_\\/]+/g, ' ')
+                        .trim();
 
-                // Ignorar líneas basura comunes de origen o sucursales
-                if (lUp.includes('ORIGEN') || lUp.includes('RETIRAR') || lUp.includes('OFICINA') || 
-                    lUp.includes('TRACKING') || lUp.includes('PESO') || lUp.includes('KG') || 
-                    lUp.includes('BS.') || lUp.startsWith('0') || /^\d+$/.test(lUp)) {
-                    continue;
-                }
-
-                if (lUp.includes('DEST') || lUp.includes('NOMBRE') || lUp.includes('CLIENTE') || lUp.includes('INATARIO')) {
-                    let limpio = lUp.replace(/DESTINATARIO|DEST|NOMBRE|CLIENTE|CEDULA|C\.I\.|TEL|TLF|INATARIO/g, '').replace(/[:\-_\\/]+/g, ' ').trim();
                     if (limpio.length > 3) {
                         posiblesNombres.push(limpio);
                     } else if (i + 1 < lineas.length) {
-                        let limpioSig = lineas[i + 1].replace(/[:\-_\\/]+/g, ' ').trim();
-                        if (limpioSig.length > 3 && !limpioSig.toUpperCase().includes('ORIGEN') && !limpioSig.toUpperCase().includes('RETIRAR')) {
+                        let limpioSig = lineas[i + 1]
+                            .toUpperCase()
+                            .replace(/V-|E-|RIF|TEL|TLF/g, '')
+                            .replace(/\b\d{6,}\b/g, '')
+                            .replace(/[:\-_\\/]+/g, ' ')
+                            .trim();
+                        if (limpioSig.length > 3) {
                             posiblesNombres.push(limpioSig);
                         }
                     }
                 }
             }
 
-            // Si no encontró por etiquetas, busca líneas generales que parezcan nombres reales
+            // Si no encontró por etiquetas directas, busca líneas generales de texto válido
             if (posiblesNombres.length === 0) {
                 for (let l of lineas) {
                     let lUp = l.toUpperCase();
-                    if (lUp.includes('ORIGEN') || lUp.includes('RETIRAR') || lUp.includes('OFICINA') || lUp.includes('BARCELONA') || lUp.includes('CARACAS')) continue;
+                    if (lUp.includes('ORIGEN') || lUp.includes('RETIRAR') || lUp.includes('OFICINA') || lUp.includes('TRACKING')) continue;
                     
                     let limpioGen = l.replace(/[:\-_\\/]+/g, ' ').trim();
                     if (limpioGen.length > 5 && !/^\d+$/.test(limpioGen) && limpioGen.split(' ').length >= 2) {
@@ -206,7 +209,7 @@
             if (unicos.length > 0) {
                 document.getElementById('nombreCliente').value = unicos[0];
 
-                // Cargar la caja rosada correctamente con opciones limpias
+                // Cargar la caja rosada con las opciones
                 const selectSugerencias = document.getElementById('listaSugerencias');
                 selectSugerencias.innerHTML = '<option value="">-- Selecciona el destinatario correcto --</option>';
                 unicos.forEach(op => {
