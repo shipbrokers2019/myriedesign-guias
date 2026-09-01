@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Limpieza de Basura y Opciones Múltiples Inteligentes -->
+    <!-- Script con Corrección de Teléfono Estricto por Guía -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -89,6 +89,11 @@
         async function procesarGuiaInteligente(event) {
             let archivo = event.target.files[0];
             if (!archivo) return;
+
+            // Limpiar campos anteriores antes de procesar la nueva foto
+            document.getElementById('telefonoCliente').value = "";
+            document.getElementById('nombreCliente').value = "";
+            document.getElementById('selectorRapidoContainer').classList.add('hidden');
 
             const estado = document.getElementById('estadoLectura');
             document.getElementById('previewBox').classList.remove('hidden');
@@ -149,41 +154,56 @@
             else if (textoMayus.includes('LAE')) empresa = 'LAE';
             document.getElementById('empresa').value = empresa;
 
-            // 2. Extraer Teléfono (Infalible)
-            let telefono = "";
-            const matchesTlf = [...texto.matchAll(/\b0?((?:414|424|412|416|426)\d{7})\b/g)];
-            if (matchesTlf.length > 0) {
-                telefono = matchesTlf[matchesTlf.length - 1][1];
-            }
-            if (telefono && telefono.startsWith('0')) {
-                telefono = telefono.substring(1);
-            }
-            if (telefono) {
-                document.getElementById('telefonoCliente').value = telefono;
+            // 2. Extraer Teléfono (Búsqueda aislada y limpia)
+            let telefonoEncontrado = "";
+            
+            // Buscar primero líneas que contengan etiquetas de teléfono
+            for (let l of lineas) {
+                let lUp = l.toUpperCase();
+                if (lUp.includes('TLF') || lUp.includes('TEL') || lUp.includes('TELEFONO')) {
+                    let matchLinea = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
+                    if (matchLinea) {
+                        telefonoEncontrado = matchLinea[0].replace(/\D/g, '');
+                        break;
+                    }
+                }
             }
 
-            // 3. Limpieza profunda de basura para obtener nombres limpios
+            // Si no lo encontró por etiqueta, buscamos cualquier celular válido en todo el texto
+            if (!telefonoEncontrado) {
+                let matchesGeneral = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
+                if (matchesGeneral && matchesGeneral.length > 0) {
+                    telefonoEncontrado = matchesGeneral[0].replace(/\D/g, '');
+                }
+            }
+
+            // Normalizar formato (quitar el 0 inicial si lo tiene para dejarlo de 10 dígitos)
+            if (telefonoEncontrado) {
+                if (telefonoEncontrado.startsWith('0') && telefonoEncontrado.length === 11) {
+                    telefonoEncontrado = telefonoEncontrado.substring(1);
+                }
+                document.getElementById('telefonoCliente').value = telefonoEncontrado;
+            }
+
+            // 3. Limpieza de nombres
             let posiblesNombres = [];
 
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
 
-                // Descartar líneas que sean netamente técnicas, códigos o de origen/oficina
                 if (lUp.includes('TRACKING') || lUp.includes('ORIGEN') || lUp.includes('PESO') || 
                     lUp.includes('KG') || lUp.includes('BS.') || lUp.includes('COBRO EN DESTINO') || 
                     lUp.includes('CANT. CUPONES') || /^\d+$/.test(lUp)) {
                     continue;
                 }
 
-                // Limpiar etiquetas comunes de impresión térmica y cédulas/teléfonos pegados
                 let limpio = lUp
                     .replace(/DESTINATARIO:|DEST:|DESTINATARIO|DEST|PEST:|PEST|NOMBRE|CLIENTE|INATARIO|TLF|TEL/g, '')
-                    .replace(/[VE]-?\d{6,}/g, '') // Quita cédulas (ej. V-8795182)
-                    .replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '') // Quita teléfonos
+                    .replace(/[VE]-?\d{6,}/g, '')
+                    .replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '')
                     .replace(/[:\-_\\/]+/g, ' ')
                     .trim();
 
-                // Si queda un texto con tamaño decente que parezca un nombre o dirección útil
                 if (limpio.length > 4 && !/^\d+$/.test(limpio)) {
                     posiblesNombres.push(limpio);
                 }
@@ -193,7 +213,6 @@
             if (unicos.length > 0) {
                 document.getElementById('nombreCliente').value = unicos[0];
 
-                // Cargar la caja rosada con las opciones limpias
                 const selectSugerencias = document.getElementById('listaSugerencias');
                 selectSugerencias.innerHTML = '<option value="">-- Selecciona el destinatario correcto --</option>';
                 unicos.forEach(op => {
