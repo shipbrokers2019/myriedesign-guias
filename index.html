@@ -53,7 +53,7 @@
 
             <!-- Ventana / Selector rápido rosado -->
             <div id="selectorRapidoContainer" class="hidden bg-pink-50 border border-pink-200 p-3 rounded-xl">
-                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Si el nombre no es exacto, escoge otro aquí:</label>
+                <label class="block text-xs font-bold text-pink-600 uppercase mb-1">👆 Opciones detectadas en la guía:</label>
                 <select id="listaSugerencias" class="w-full p-2 bg-white border border-pink-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none" onchange="seleccionarSugerencia(this)">
                     <option value="">-- Selecciona el destinatario correcto --</option>
                 </select>
@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Corrección de Teléfono Estricto por Guía -->
+    <!-- Script con Extracción Inteligente Dual (Nombre + Teléfono integrado) -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -90,7 +90,6 @@
             let archivo = event.target.files[0];
             if (!archivo) return;
 
-            // Limpiar campos anteriores antes de procesar la nueva foto
             document.getElementById('telefonoCliente').value = "";
             document.getElementById('nombreCliente').value = "";
             document.getElementById('selectorRapidoContainer').classList.add('hidden');
@@ -154,30 +153,15 @@
             else if (textoMayus.includes('LAE')) empresa = 'LAE';
             document.getElementById('empresa').value = empresa;
 
-            // 2. Extraer Teléfono (Búsqueda aislada y limpia)
+            // 2. Extraer Teléfono de forma prioritaria
             let telefonoEncontrado = "";
+            let matchesGeneral = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
             
-            // Buscar primero líneas que contengan etiquetas de teléfono
-            for (let l of lineas) {
-                let lUp = l.toUpperCase();
-                if (lUp.includes('TLF') || lUp.includes('TEL') || lUp.includes('TELEFONO')) {
-                    let matchLinea = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
-                    if (matchLinea) {
-                        telefonoEncontrado = matchLinea[0].replace(/\D/g, '');
-                        break;
-                    }
-                }
+            if (matchesGeneral && matchesGeneral.length > 0) {
+                // Agarramos el primer número celular válido que aparezca
+                telefonoEncontrado = matchesGeneral[0].replace(/\D/g, '');
             }
 
-            // Si no lo encontró por etiqueta, buscamos cualquier celular válido en todo el texto
-            if (!telefonoEncontrado) {
-                let matchesGeneral = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
-                if (matchesGeneral && matchesGeneral.length > 0) {
-                    telefonoEncontrado = matchesGeneral[0].replace(/\D/g, '');
-                }
-            }
-
-            // Normalizar formato (quitar el 0 inicial si lo tiene para dejarlo de 10 dígitos)
             if (telefonoEncontrado) {
                 if (telefonoEncontrado.startsWith('0') && telefonoEncontrado.length === 11) {
                     telefonoEncontrado = telefonoEncontrado.substring(1);
@@ -185,7 +169,7 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. Limpieza de nombres
+            // 3. Procesar líneas para el nombre y guardar opciones limpias
             let posiblesNombres = [];
 
             for (let l of lineas) {
@@ -197,6 +181,15 @@
                     continue;
                 }
 
+                // Extraer el teléfono si estuviera en la misma línea antes de limpiar
+                let matchTlfLinea = l.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
+                if (matchTlfLinea && !telefonoEncontrado) {
+                    let tlfExtraido = matchTlfLinea[0].replace(/\D/g, '');
+                    if (tlfExtraido.startsWith('0') && tlfExtraido.length === 11) tlfExtraido = tlfExtraido.substring(1);
+                    document.getElementById('telefonoCliente').value = tlfExtraido;
+                }
+
+                // Limpiar basura del nombre
                 let limpio = lUp
                     .replace(/DESTINATARIO:|DEST:|DESTINATARIO|DEST|PEST:|PEST|NOMBRE|CLIENTE|INATARIO|TLF|TEL/g, '')
                     .replace(/[VE]-?\d{6,}/g, '')
