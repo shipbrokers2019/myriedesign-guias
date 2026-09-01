@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Extracción Inteligente y Precisa -->
+    <!-- Script con Sincronización Nombre-Teléfono -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -153,72 +153,62 @@
             else if (textoMayus.includes('LAE')) empresa = 'LAE';
             document.getElementById('empresa').value = empresa;
 
-            // 2. Extracción de Teléfono (Evitando el remitente de arriba)
-            let telefonoEncontrado = "";
-            let indicesExcluidos = [];
+            let clientesDetectados = [];
+            let telefonoPrincipal = "";
 
-            // Buscamos la línea exacta del cliente (suele estar acompañada de una cédula V- o E-)
-            for (let i = 0; i < lineas.length; i++) {
-                let lUp = lineas[i].toUpperCase();
-                // Si la línea tiene un formato de cédula y un teléfono o está cerca
-                if (lUp.includes('V-') || lUp.includes('E-') || lUp.includes('J-') || lUp.includes('G-')) {
-                    // Verificamos si en esta misma línea o en la siguiente hay un teléfono
-                    let matchTlf = lineas[i].match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
-                    if (!matchTlf && i + 1 < lineas.length) {
-                        matchTlf = lineas[i+1].match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
-                    }
-                    if (matchTlf) {
-                        telefonoEncontrado = matchTlf[0].replace(/\D/g, '');
-                        break;
-                    }
-                }
-            }
-
-            // Respaldo de seguridad si no se halló por cédula: buscar el último teléfono del bloque inferior
-            if (!telefonoEncontrado) {
-                let todosLosTelefonos = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
-                if (todosLosTelefonos && todosLosTelefonos.length > 0) {
-                    let listaLimpiaTlf = todosLosTelefonos.map(t => t.replace(/\D/g, ''));
-                    telefonoEncontrado = listaLimpiaTlf[listaLimpiaTlf.length - 1]; // El último suele ser el cliente
-                }
-            }
-
-            if (telefonoEncontrado) {
-                if (telefonoEncontrado.startsWith('0') && telefonoEncontrado.length === 11) {
-                    telefonoEncontrado = telefonoEncontrado.substring(1);
-                }
-                document.getElementById('telefonoCliente').value = telefonoEncontrado;
-            }
-
-            // 3. Extracción de Nombres y generación de opciones limpias
-            let posiblesNombres = [];
-
+            // 2. Analizar línea por línea buscando la estructura del destinatario con su cédula y teléfono adjunto
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
 
-                // Filtrar basura, tracking, pesos, ciudades sueltas o datos del remitente
-                if (lUp.includes('REM') || lUp.includes('TRACKING') || lUp.includes('ORIGEN') || 
-                    lUp.includes('PESO') || lUp.includes('KG') || lUp.includes('BS.') || 
-                    lUp.includes('COBRO EN DESTINO') || lUp.includes('CIUDAD BOLIVAR') || 
-                    lUp.includes('RETIRAR POR OFICINA') || lUp.length < 5 || /^\d+$/.test(lUp)) {
-                    continue;
-                }
+                // Ignorar remitente absoluto de la primera línea superior si aparece solo
+                if (lUp.includes('REM') && !lUp.includes('V-') && !lUp.includes('E-')) continue;
 
-                // Limpiar prefijos de cédula o etiquetas de destinatario
-                let limpio = lUp
-                    .replace(/DESTINATARIO:|DEST:|DESTINATARIO|DEST|NOMBRE|CLIENTE/g, '')
-                    .replace(/[VEJG]-?\s*\d{6,}/g, '') // Quita cédulas como V-12312445
-                    .replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '') // Quita teléfonos
-                    .replace(/[:\-_\\/]+/g, ' ')
-                    .trim();
+                // Si la línea contiene una cédula (V- o E-) y un nombre
+                if (lUp.includes('V-') || lUp.includes('E-') || lUp.includes('J-')) {
+                    // Extraer el teléfono si está en esta misma línea (ej: TLF 04182994104)
+                    let matchTlfEnLinea = lUp.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
+                    if (matchTlfEnLinea && !telefonoPrincipal) {
+                        telefonoPrincipal = matchTlfEnLinea[0].replace(/\D/g, '');
+                    }
 
-                // Validar que lo que quede sea un nombre real con letras
-                if (limpio.length > 4 && /[A-Z]{3,}/.test(limpio) && !/^\d+$/.test(limpio.replace(/\s/g, ''))) {
-                    posiblesNombres.push(limpio);
+                    // Limpiar el nombre para dejarlo presentable
+                    let nombreLimpio = lUp
+                        .replace(/[VEJG]-?\s*\d{6,}/g, '') // Quita la cédula
+                        .replace(/TLF|TEL|TELEFONO/g, '')
+                        .replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '') // Quita el tlf si estaba pegado
+                        .replace(/[:\-_\\/]+/g, ' ')
+                        .trim();
+
+                    // Limpiar espacios dobles o números volando al final
+                    nombreLimpio = nombreLimpio.replace(/\s+\d+$/, '').trim();
+
+                    if (nombreLimpio.length > 4 && /[A-Z]{3,}/.test(nombreLimpio)) {
+                        clientesDetectados.push(nombreLimpio);
+                    }
                 }
             }
 
-            let unicos = [...new Set(posiblesNombres)];
+            // Si no encontró teléfono en la misma línea del nombre, buscamos el último teléfono del texto (excluyendo el primero de arriba)
+            if (!telefonoPrincipal) {
+                let todosLosTelefonos = texto.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/g);
+                if (todosLosTelefonos && todosLosTelefonos.length > 1) {
+                    let listaLimpiaTlf = todosLosTelefonos.map(t => t.replace(/\D/g, ''));
+                    telefonoPrincipal = listaLimpiaTlf[listaLimpiaTlf.length - 1]; // El último de la guía
+                } else if (todosLosTelefonos && todosLosTelefonos.length === 1) {
+                    telefonoPrincipal = todosLosTelefonos[0].replace(/\D/g, '');
+                }
+            }
+
+            // Asignar Teléfono
+            if (telefonoPrincipal) {
+                if (telefonoPrincipal.startsWith('0') && telefonoPrincipal.length === 11) {
+                    telefonoPrincipal = telefonoPrincipal.substring(1);
+                }
+                document.getElementById('telefonoCliente').value = telefonoPrincipal;
+            }
+
+            // Asignar Nombre y Opciones
+            let unicos = [...new Set(clientesDetectados)];
             if (unicos.length > 0) {
                 document.getElementById('nombreCliente').value = unicos[0];
 
