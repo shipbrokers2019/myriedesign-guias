@@ -89,7 +89,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Completo con IA local + Dictado por Voz -->
+    <!-- Script Completo sin descarga automática -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -236,7 +236,7 @@
             }
         }
 
-        // Función para dictar por voz usando el micrófono nativo del celular o PC
+        // Función para dictar por voz usando el micrófono
         function dictarVoz(idCampo) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
@@ -245,7 +245,7 @@
             }
 
             const reconocimiento = new SpeechRecognition();
-            reconocimiento.lang = 'es-VE'; // Configurado para español de Venezuela
+            reconocimiento.lang = 'es-VE';
             reconocimiento.interimResults = false;
             reconocimiento.maxAlternatives = 1;
 
@@ -256,7 +256,6 @@
             reconocimiento.onresult = function(event) {
                 let textoDictado = event.results[0][0].transcript;
                 
-                // Si es el campo teléfono, limpiamos letras o espacios para dejar solo números
                 if (idCampo === 'telefonoCliente') {
                     textoDictado = textoDictado.replace(/\D/g, '');
                     if (textoDictado.startsWith('0') && textoDictado.length === 11) {
@@ -304,14 +303,7 @@
             if (telefono.startsWith('0')) telefono = telefono.substring(1);
             if (!telefono.startsWith('58')) telefono = '58' + telefono;
 
-            if (archivoSeleccionado) {
-                const enlaceDescarga = document.createElement('a');
-                enlaceDescarga.href = urlImagenActual;
-                enlaceDescarga.download = `Guia_${nombre.replace(/\s+/g, '_')}_${empresa}.jpg`;
-                document.body.appendChild(enlaceDescarga);
-                enlaceDescarga.click();
-                document.body.removeChild(enlaceDescarga);
-            }
+            // Se eliminó la descarga automática de la imagen para evitar que aparezca la ventana de descarga
 
             const mensaje = `Hola Sr./Sra. ${nombre}, 👋\n\n` +
 `Su pedido ya fue enviado por la empresa *${empresa}* 📦.\n\n` +
@@ -326,10 +318,7 @@
 `Saludos, Myriedesign`;
 
             const urlWhatsApp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
-            
-            setTimeout(() => {
-                window.open(urlWhatsApp, '_blank');
-            }, 300);
+            window.open(urlWhatsApp, '_blank');
         }
     </script>
 </body>
