@@ -34,7 +34,7 @@
             </div>
         </div>
 
-        <!-- Formulario Automatizado -->
+        <!-- Formulario Automatizado con Corrección por Voz y Texto -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 space-y-4">
             <h2 class="font-semibold text-slate-700 flex justify-between items-center">
                 📝 <span>Datos de Destino</span>
@@ -59,14 +59,22 @@
                 </select>
             </div>
 
+            <!-- Campo Destinatario con Botón de Voz -->
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Destinatario</label>
-                <input type="text" id="nombreCliente" placeholder="Nombre del cliente..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
+                <div class="flex gap-2">
+                    <input type="text" id="nombreCliente" placeholder="Nombre del cliente..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-bold text-slate-800">
+                    <button type="button" onclick="dictarVoz('nombreCliente')" class="bg-pink-100 text-pink-600 px-3.5 rounded-xl hover:bg-pink-200 transition font-bold text-lg" title="Dictar nombre por voz">🎤</button>
+                </div>
             </div>
 
+            <!-- Campo Teléfono con Botón de Voz -->
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Teléfono</label>
-                <input type="tel" id="telefonoCliente" placeholder="Número detectado..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono font-bold text-slate-800">
+                <div class="flex gap-2">
+                    <input type="tel" id="telefonoCliente" placeholder="Número detectado..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-pink-500 font-mono font-bold text-slate-800">
+                    <button type="button" onclick="dictarVoz('telefonoCliente')" class="bg-pink-100 text-pink-600 px-3.5 rounded-xl hover:bg-pink-200 transition font-bold text-lg" title="Dictar teléfono por voz">🎤</button>
+                </div>
             </div>
         </div>
 
@@ -81,7 +89,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Algoritmo de Extracción Robusto -->
+    <!-- Script Completo con IA local + Dictado por Voz -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -156,13 +164,11 @@
             let telefonoEncontrado = "";
             let clientesDetectados = [];
 
-            // 2. Extracción de Teléfono ultra-flexible (busca cualquier coincidencia móvil de 11 dígitos en el texto plano)
-            // Limpiamos todo lo que no sea número para aplicar la regex maestra de celulares venezolanos
+            // 2. Extracción de Teléfono
             let textoSoloNumeros = textoMayus.replace(/[^0-9]/g, ' ');
             let matchCelulares = textoSoloNumeros.match(/(?:0?)(414|424|412|416|426)\s*\d{7}/g);
 
             if (matchCelulares && matchCelulares.length > 0) {
-                // Tomamos el último número válido encontrado (suele ser el del destinatario o el más cercano al bloque de datos)
                 let tlfCrudo = matchCelulares[matchCelulares.length - 1].replace(/\s+/g, '');
                 if (tlfCrudo.startsWith('0') && tlfCrudo.length === 11) {
                     telefonoEncontrado = tlfCrudo.substring(1);
@@ -177,11 +183,10 @@
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. Filtrado estricto para extraer solo nombres de personas
+            // 3. Filtrado para nombres de clientes
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
 
-                // Descartar palabras clave que no sean nombres de clientes
                 if (lUp.includes('REM') || lUp.includes('TRACKING') || lUp.includes('ORIGEN') || 
                     lUp.includes('PESO') || lUp.includes('KG') || lUp.includes('BS.') || 
                     lUp.includes('COBRO EN DESTINO') || lUp.includes('RETIRAR POR OFICINA') || 
@@ -192,7 +197,6 @@
                     continue;
                 }
 
-                // Limpiar cédulas, etiquetas y códigos numéricos
                 let limpio = lUp
                     .replace(/DESTINATARIO:|DEST:|DESTINATARIO|DEST|NOMBRE|CLIENTE/g, '')
                     .replace(/[VEJG]-?\s*\d{6,}/g, '')
@@ -203,7 +207,6 @@
 
                 limpio = limpio.replace(/\s+\d+$/, '').trim();
 
-                // Validar que la línea tenga formato de nombre (al menos dos palabras con letras y sin números puros)
                 if (limpio.length > 4 && /[A-Z]{3,}/.test(limpio) && !/^\d+$/.test(limpio.replace(/\s/g, ''))) {
                     clientesDetectados.push(limpio);
                 }
@@ -231,6 +234,53 @@
             if (select.value) {
                 document.getElementById('nombreCliente').value = select.value;
             }
+        }
+
+        // Función para dictar por voz usando el micrófono nativo del celular o PC
+        function dictarVoz(idCampo) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Tu navegador no soporta dictado por voz. Puedes escribir directamente en el campo.");
+                return;
+            }
+
+            const reconocimiento = new SpeechRecognition();
+            reconocimiento.lang = 'es-VE'; // Configurado para español de Venezuela
+            reconocimiento.interimResults = false;
+            reconocimiento.maxAlternatives = 1;
+
+            const inputDestino = document.getElementById(idCampo);
+            const valorOriginal = inputDestino.placeholder;
+            inputDestino.placeholder = "🎤 Escuchando... habla ahora...";
+
+            reconocimiento.onresult = function(event) {
+                let textoDictado = event.results[0][0].transcript;
+                
+                // Si es el campo teléfono, limpiamos letras o espacios para dejar solo números
+                if (idCampo === 'telefonoCliente') {
+                    textoDictado = textoDictado.replace(/\D/g, '');
+                    if (textoDictado.startsWith('0') && textoDictado.length === 11) {
+                        textoDictado = textoDictado.substring(1);
+                    }
+                } else {
+                    textoDictado = textoDictado.toUpperCase();
+                }
+
+                inputDestino.value = textoDictado;
+                inputDestino.placeholder = valorOriginal;
+            };
+
+            reconocimiento.onerror = function(event) {
+                console.error("Error de voz:", event.error);
+                inputDestino.placeholder = valorOriginal;
+                alert("No se pudo reconocer la voz. Inténtalo de nuevo.");
+            };
+
+            reconocimiento.onend = function() {
+                inputDestino.placeholder = valorOriginal;
+            };
+
+            reconocimiento.start();
         }
 
         function verImagenCompleta() {
