@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script con Aislamiento Estricto de Teléfono de Destino -->
+    <!-- Script con Extracción de Teléfono en la Misma Línea -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -156,29 +156,7 @@
             let telefonoEncontrado = "";
             let clientesDetectados = [];
 
-            // 2. Extraer teléfono buscando específicamente en la mitad inferior o líneas con etiquetas de cliente
-            // Recorremos el arreglo de líneas de abajo hacia arriba para agarrar primero el del destinatario
-            for (let i = lineas.length - 1; i >= 0; i--) {
-                let lUp = lineas[i].toUpperCase();
-                
-                // Si la línea tiene formato de teléfono móvil venezolano
-                let matchTlf = lUp.match(/(?:0?(?:414|424|412|416|426))\s*\d{7}/);
-                if (matchTlf) {
-                    let tlfLimpio = matchTlf[0].replace(/\D/g, '');
-                    // Validar que no sea el teléfono fijo del remitente/tienda si se conoce, o simplemente aceptamos el de abajo
-                    telefonoEncontrado = tlfLimpio;
-                    break; // Encontró el más cercano al fondo, salimos
-                }
-            }
-
-            if (telefonoEncontrado) {
-                if (telefonoEncontrado.startsWith('0') && telefonoEncontrado.length === 11) {
-                    telefonoEncontrado = telefonoEncontrado.substring(1);
-                }
-                document.getElementById('telefonoCliente').value = telefonoEncontrado;
-            }
-
-            // 3. Extraer nombres limpios de clientes
+            // 2. Extraer nombres y buscar el teléfono en la *misma línea*
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
 
@@ -190,12 +168,20 @@
                     continue;
                 }
 
+                // Intentar capturar teléfono en esta misma línea si existe
+                if (!telefonoEncontrado) {
+                    let matchTlfLinea = lUp.match(/(?:0?)(?:414|424|412|416|426)\s*\d{7}/);
+                    if (matchTlfLinea) {
+                        telefonoEncontrado = matchTlfLinea[0].replace(/\D/g, '');
+                    }
+                }
+
                 // Limpiar cédulas, la palabra TLF y números telefónicos para que el nombre quede impecable
                 let limpio = lUp
                     .replace(/DESTINATARIO:|DEST:|DESTINATARIO|DEST|NOMBRE|CLIENTE/g, '')
                     .replace(/[VEJG]-?\s*\d{6,}/g, '')
-                    .replace(/TLF.*|TEL.*/g, '') // Corta todo lo que venga después de la palabra TLF o TEL en esa línea
-                    .replace(/\b0?(?:414|424|412|416|426)\d{7}\b/g, '')
+                    .replace(/TLF.*|TEL.*|TIF.*/g, '') 
+                    .replace(/\b0?(?:414|424|412|416|426)\s*\d{7}\b/g, '') // Quita el teléfono de la cadena del nombre
                     .replace(/[:\-_\\/]+/g, ' ')
                     .trim();
 
@@ -204,6 +190,21 @@
                 if (limpio.length > 4 && /[A-Z]{3,}/.test(limpio) && !/^\d+$/.test(limpio.replace(/\s/g, ''))) {
                     clientesDetectados.push(limpio);
                 }
+            }
+
+            // Respaldo global por si el teléfono estaba en otra línea cercana
+            if (!telefonoEncontrado) {
+                let matchGeneral = textoMayus.replace(/[^\d]/g, '').match(/(?:0?)(414|424|412|416|426)\d{7}/g);
+                if (matchGeneral && matchGeneral.length > 0) {
+                    telefonoEncontrado = matchGeneral[matchGeneral.length - 1];
+                }
+            }
+
+            if (telefonoEncontrado) {
+                if (telefonoEncontrado.startsWith('0') && telefonoEncontrado.length === 11) {
+                    telefonoEncontrado = telefonoEncontrado.substring(1);
+                }
+                document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
             let unicos = [...new Set(clientesDetectados)];
