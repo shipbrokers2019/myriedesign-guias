@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Completo Actualizado -->
+    <!-- Script con Algoritmo de Extracción Robusto -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -156,48 +156,43 @@
             let telefonoEncontrado = "";
             let clientesDetectados = [];
 
-            // 2. Búsqueda quirúrgica de teléfono basada en etiquetas TLF / TEL / TIF
-            for (let l of lineas) {
-                let lUp = l.toUpperCase();
-                if (lUp.includes('TLF') || lUp.includes('TEL') || lUp.includes('TIF')) {
-                    let matchTlf = lUp.replace(/[^\d]/g, '').match(/(?:414|424|412|416|426)\d{7}/);
-                    if (matchTlf) {
-                        telefonoEncontrado = matchTlf[0];
-                        break;
-                    }
-                }
-            }
+            // 2. Extracción de Teléfono ultra-flexible (busca cualquier coincidencia móvil de 11 dígitos en el texto plano)
+            // Limpiamos todo lo que no sea número para aplicar la regex maestra de celulares venezolanos
+            let textoSoloNumeros = textoMayus.replace(/[^0-9]/g, ' ');
+            let matchCelulares = textoSoloNumeros.match(/(?:0?)(414|424|412|416|426)\s*\d{7}/g);
 
-            // Respaldo global por si el teléfono está en formato general sin etiqueta
-            if (!telefonoEncontrado) {
-                let matchGeneral = textoMayus.replace(/[^\d]/g, '').match(/(?:0?)(414|424|412|416|426)\d{7}/g);
-                if (matchGeneral && matchGeneral.length > 0) {
-                    telefonoEncontrado = matchGeneral[matchGeneral.length - 1];
+            if (matchCelulares && matchCelulares.length > 0) {
+                // Tomamos el último número válido encontrado (suele ser el del destinatario o el más cercano al bloque de datos)
+                let tlfCrudo = matchCelulares[matchCelulares.length - 1].replace(/\s+/g, '');
+                if (tlfCrudo.startsWith('0') && tlfCrudo.length === 11) {
+                    telefonoEncontrado = tlfCrudo.substring(1);
+                } else if (tlfCrudo.length === 10) {
+                    telefonoEncontrado = tlfCrudo;
+                } else if (tlfCrudo.length === 11) {
+                    telefonoEncontrado = tlfCrudo.substring(1);
                 }
             }
 
             if (telefonoEncontrado) {
-                if (telefonoEncontrado.startsWith('0') && telefonoEncontrado.length === 11) {
-                    telefonoEncontrado = telefonoEncontrado.substring(1);
-                }
                 document.getElementById('telefonoCliente').value = telefonoEncontrado;
             }
 
-            // 3. Extraer nombres limpios de clientes filtrando oficinas, direcciones y basura
+            // 3. Filtrado estricto para extraer solo nombres de personas
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
 
-                // Ignorar líneas de oficina, dirección, tracking, costos o datos de tienda
+                // Descartar palabras clave que no sean nombres de clientes
                 if (lUp.includes('REM') || lUp.includes('TRACKING') || lUp.includes('ORIGEN') || 
                     lUp.includes('PESO') || lUp.includes('KG') || lUp.includes('BS.') || 
                     lUp.includes('COBRO EN DESTINO') || lUp.includes('RETIRAR POR OFICINA') || 
                     lUp.includes('AV.') || lUp.includes('CALLE') || lUp.includes('URB') || 
                     lUp.includes('ESTADO') || lUp.includes('PARROQUIA') || lUp.includes('MUNICIPI') ||
-                    lUp.includes('ACARIGUA') || lUp.includes('BARQUISIMETO') || lUp.length < 5 || /^\d+$/.test(lUp)) {
+                    lUp.includes('ACARIGUA') || lUp.includes('BARQUISIMETO') || lUp.includes('LECHERIA') ||
+                    lUp.length < 5 || /^\d+$/.test(lUp)) {
                     continue;
                 }
 
-                // Limpiar cédulas, palabras claves, etiquetas y números telefónicos
+                // Limpiar cédulas, etiquetas y códigos numéricos
                 let limpio = lUp
                     .replace(/DESTINATARIO:|DEST:|DESTINATARIO|DEST|NOMBRE|CLIENTE/g, '')
                     .replace(/[VEJG]-?\s*\d{6,}/g, '')
@@ -208,7 +203,7 @@
 
                 limpio = limpio.replace(/\s+\d+$/, '').trim();
 
-                // Validar que parezca un nombre real de persona
+                // Validar que la línea tenga formato de nombre (al menos dos palabras con letras y sin números puros)
                 if (limpio.length > 4 && /[A-Z]{3,}/.test(limpio) && !/^\d+$/.test(limpio.replace(/\s/g, ''))) {
                     clientesDetectados.push(limpio);
                 }
