@@ -81,7 +81,7 @@
         <img id="imagenModal" class="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain">
     </div>
 
-    <!-- Script Mejorado para Filtro de Nombres y Teléfono Robusto -->
+    <!-- Script Completo Actualizado -->
     <script>
         let archivoSeleccionado = null;
         let urlImagenActual = "";
@@ -156,11 +156,10 @@
             let telefonoEncontrado = "";
             let clientesDetectados = [];
 
-            // 2. Búsqueda exhaustiva y flexible del teléfono en todo el texto (por etiqueta o patrón libre)
+            // 2. Búsqueda quirúrgica de teléfono basada en etiquetas TLF / TEL / TIF
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
-                // Buscar si la línea tiene etiquetas comunes de teléfono o formato móvil
-                if (lUp.includes('TLF') || lUp.includes('TEL') || lUp.includes('TIF') || /(?:0?)(?:414|424|412|416|426)/.test(lUp)) {
+                if (lUp.includes('TLF') || lUp.includes('TEL') || lUp.includes('TIF')) {
                     let matchTlf = lUp.replace(/[^\d]/g, '').match(/(?:414|424|412|416|426)\d{7}/);
                     if (matchTlf) {
                         telefonoEncontrado = matchTlf[0];
@@ -169,7 +168,7 @@
                 }
             }
 
-            // Respaldo global por si el teléfono está separado o sin etiqueta clara
+            // Respaldo global por si el teléfono está en formato general sin etiqueta
             if (!telefonoEncontrado) {
                 let matchGeneral = textoMayus.replace(/[^\d]/g, '').match(/(?:0?)(414|424|412|416|426)\d{7}/g);
                 if (matchGeneral && matchGeneral.length > 0) {
@@ -194,7 +193,7 @@
                     lUp.includes('COBRO EN DESTINO') || lUp.includes('RETIRAR POR OFICINA') || 
                     lUp.includes('AV.') || lUp.includes('CALLE') || lUp.includes('URB') || 
                     lUp.includes('ESTADO') || lUp.includes('PARROQUIA') || lUp.includes('MUNICIPI') ||
-                    lUp.length < 5 || /^\d+$/.test(lUp)) {
+                    lUp.includes('ACARIGUA') || lUp.includes('BARQUISIMETO') || lUp.length < 5 || /^\d+$/.test(lUp)) {
                     continue;
                 }
 
@@ -209,7 +208,7 @@
 
                 limpio = limpio.replace(/\s+\d+$/, '').trim();
 
-                // Validar que parezca un nombre real de persona (al menos dos palabras con letras)
+                // Validar que parezca un nombre real de persona
                 if (limpio.length > 4 && /[A-Z]{3,}/.test(limpio) && !/^\d+$/.test(limpio.replace(/\s/g, ''))) {
                     clientesDetectados.push(limpio);
                 }
