@@ -184,23 +184,30 @@
             }
 
             // 3. Filtrado para nombres de clientes
+            // Se separan en 2 grupos: los que vienen de una línea con etiqueta de
+            // destinatario (DESTINATARIO/DEST/NOMBRE) tienen prioridad sobre cualquier
+            // otra línea "genérica" que haya pasado el filtro (evita agarrar basura
+            // como restos de direcciones que no calzaron en las exclusiones).
+            let candidatosPrioritarios = [];
             for (let l of lineas) {
                 let lUp = l.toUpperCase();
 
-                if (lUp.includes('REM') || lUp.includes('TRACKING') || lUp.includes('ORIGEN') || 
-                    lUp.includes('PESO') || lUp.includes('KG') || lUp.includes('BS.') || 
-                    lUp.includes('COBRO EN DESTINO') || lUp.includes('RETIRAR POR OFICINA') || 
-                    lUp.includes('AV.') || lUp.includes('CALLE') || lUp.includes('URB') || 
+                if (lUp.includes('REM') || lUp.includes('TRACKING') || lUp.includes('ORIGEN') ||
+                    lUp.includes('PESO') || lUp.includes('KG') || lUp.includes('BS.') ||
+                    lUp.includes('COBRO EN DESTINO') || lUp.includes('RETIRAR POR OFICINA') ||
+                    lUp.includes('AV.') || lUp.includes('CALLE') || lUp.includes('URB') ||
                     lUp.includes('ESTADO') || lUp.includes('PARROQUIA') || lUp.includes('MUNICIPI') ||
                     lUp.includes('ACARIGUA') || lUp.includes('BARQUISIMETO') || lUp.includes('LECHERIA') ||
                     lUp.length < 5 || /^\d+$/.test(lUp)) {
                     continue;
                 }
 
+                let tieneEtiquetaDestinatario = /DESTINATARIO|DEST[:\s]|^DEST\b|NOMBRE/.test(lUp);
+
                 let limpio = lUp
                     .replace(/DESTINATARIO:|DEST:|DESTINATARIO|DEST|NOMBRE|CLIENTE/g, '')
                     .replace(/[VEJG]-?\s*\d{6,}/g, '')
-                    .replace(/TLF.*|TEL.*|TIF.*/g, '') 
+                    .replace(/TLF.*|TEL.*|TIF.*/g, '')
                     .replace(/\b0?(?:414|424|412|416|426)\s*\d{7}\b/g, '')
                     .replace(/[:\-_\\/]+/g, ' ')
                     .trim();
@@ -209,10 +216,11 @@
 
                 if (limpio.length > 4 && /[A-Z]{3,}/.test(limpio) && !/^\d+$/.test(limpio.replace(/\s/g, ''))) {
                     clientesDetectados.push(limpio);
+                    if (tieneEtiquetaDestinatario) candidatosPrioritarios.push(limpio);
                 }
             }
 
-            let unicos = [...new Set(clientesDetectados)];
+            let unicos = [...new Set(candidatosPrioritarios.length > 0 ? candidatosPrioritarios : clientesDetectados)];
             if (unicos.length > 0) {
                 document.getElementById('nombreCliente').value = unicos[0];
 
