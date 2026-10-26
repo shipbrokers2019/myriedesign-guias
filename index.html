@@ -26,6 +26,8 @@
         <header class="text-center my-6">
             <h1 class="text-2xl font-bold text-pink-600">✨ Myriedesign ✨</h1>
             <p class="text-sm text-slate-500">Lector Inteligente de Guías</p>
+            <button id="btnInstalar" hidden class="mt-3 bg-pink-600 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow">📲 Instalar app</button>
+            <p id="ayudaInstalar" hidden class="mt-3 text-xs text-slate-600 bg-pink-50 border border-pink-200 rounded-xl p-3"></p>
         </header>
 
         <!-- Selector de Foto y Escáner -->
@@ -340,6 +342,41 @@
         // Registrar service worker para que Chrome ofrezca "Instalar app"
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+        }
+
+        // Botón "Instalar app": aparece solo si el navegador permite instalar
+        const btnInstalar = document.getElementById('btnInstalar');
+        const ayudaInstalar = document.getElementById('ayudaInstalar');
+        const yaInstalada = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+        let avisoInstalar = null;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            avisoInstalar = e;
+            btnInstalar.hidden = false;
+        });
+
+        btnInstalar.addEventListener('click', async () => {
+            if (!avisoInstalar) return;
+            avisoInstalar.prompt();
+            await avisoInstalar.userChoice;
+            avisoInstalar = null;
+            btnInstalar.hidden = true;
+        });
+
+        window.addEventListener('appinstalled', () => {
+            btnInstalar.hidden = true;
+            ayudaInstalar.hidden = false;
+            ayudaInstalar.textContent = '✅ App instalada. Búscala en tu lista de aplicaciones.';
+        });
+
+        // iPhone: no existe botón automático, se explica cómo hacerlo
+        const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        if (esIOS && !yaInstalada) {
+            ayudaInstalar.hidden = false;
+            ayudaInstalar.textContent = /CriOS/i.test(navigator.userAgent)
+                ? 'Para instalar: toca el botón Compartir (cuadro con flecha arriba) → "Agregar a pantalla de inicio".'
+                : 'Para instalar: toca Compartir (cuadro con flecha abajo) → "Agregar a pantalla de inicio".';
         }
     </script>
 </body>

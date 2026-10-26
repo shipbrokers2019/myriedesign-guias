@@ -1,6 +1,6 @@
 // Service worker mínimo: hace la app instalable y la abre sin internet.
 // Estrategia "red primero": siempre intenta la versión nueva y usa la copia guardada solo si no hay conexión.
-const CACHE = 'myriedesign-v1';
+const CACHE = 'myriedesign-v2';
 const ARCHIVOS = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
